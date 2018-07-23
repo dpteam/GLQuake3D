@@ -23,7 +23,10 @@ Current projects problems:
 3. Render still glitches sometimes (to reproduce this bug, use the this command: gl_flashblend 1)
 4. Fog incorrectly rendering the glowing and flash-blending
 
-Credits:
-ID Software: Quake, WinQuake, GLQuake
-DartPower: Code rewrite
-D'Sparil: Common engine improvements ideas and game icon, also for testing
+## Credits: 
+
+ID Software: Quake, WinQuake, GLQuake 
+
+DartPower: Code rewrite 
+
+D'Sparil: Common engine improvements ideas and game icon, also for testing 
