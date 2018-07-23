@@ -1615,7 +1615,7 @@ R_RenderView
 r_refdef must be set before the first call
 ================
 */
-void R_RenderView (void)
+void R_RenderView(void)
 {
 	double	time1, time2;
 	// Original
@@ -1624,8 +1624,26 @@ void R_RenderView (void)
 	//GLfloat	colors[4] = {(GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0, (GLfloat) 0.8};
 	//OFF
 	//GLfloat	colors[4] = {(GLfloat) 0.0, (GLfloat) 0.0, (GLfloat) 0, (GLfloat) 1.0};
-	GLfloat	colors[4] = {(GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0.8};
-	
+
+
+	/*if (level_t()) // TODO: Need to add a checking for game (id1 or no) function
+	{
+		if (COM_CheckParm("-fog"))
+		{
+			if (strcpy("e1m1", level_t[0].name) // TODO: Need to fix this shit -_-
+			{
+				GLfloat	colors[4] = { (GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0.8 };
+			}
+			else if (strcpy(levels[0].name, "e2m1")
+			{
+				GLfloat	colors[4] = { (GLfloat) 0.0, (GLfloat) 0.0, (GLfloat) 0, (GLfloat) 1.0 };
+			}
+		}
+	}*/
+
+	//GLfloat	colors[4] = { (GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0.8, (GLfloat) 0.8 };
+	GLfloat	colors[4] = { (GLfloat) 0.0, (GLfloat) 0.0, (GLfloat) 0, (GLfloat) 1.0 };
+
 	if (r_norefresh.value)
 	return;
 
