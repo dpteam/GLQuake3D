@@ -438,16 +438,13 @@
     <CustomBuild Include="d_scana.s" />
     <CustomBuild Include="d_spr8.s" />
     <CustomBuild Include="d_varsa.s" />
-    <CustomBuild Include="math.s" />
     <CustomBuild Include="r_aclipa.s" />
     <CustomBuild Include="r_aliasa.s" />
     <CustomBuild Include="r_drawa.s" />
     <CustomBuild Include="r_edgea.s" />
     <CustomBuild Include="r_varsa.s" />
-    <CustomBuild Include="snd_mixa.s" />
     <CustomBuild Include="surf16.s" />
     <CustomBuild Include="surf8.s" />
-    <CustomBuild Include="sys_wina.s" />
     <CustomBuild Include="worlda.s" />
   </ItemGroup>
   <ItemGroup>
