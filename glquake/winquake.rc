@@ -7,7 +7,7 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "afxres.h"
+#include "windows.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -32,7 +32,7 @@ END
 
 2 TEXTINCLUDE 
 BEGIN
-    "#include ""afxres.h""\r\n"
+    "#include ""windows.h""\r\n"
     "\0"
 END
 
@@ -59,6 +59,10 @@ IDI_ICON2               ICON                    "quake.ico"
 //
 // Dialog
 //
+
+#ifndef IDC_STATIC
+#define IDC_STATIC -1
+#endif // IDC_STATIC
 
 IDD_DIALOG1 DIALOGEX 0, 0, 62, 21
 STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_3DLOOK | DS_CENTER | WS_POPUP
