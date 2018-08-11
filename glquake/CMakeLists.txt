@@ -8,10 +8,10 @@ set(SOURCES
 	cl_main.c
 	cl_parse.c
 	cl_tent.c
+	cmd.c
 	common.c
 	conproc.c
 	console.c
-	cmd.c
 	crc.c
 	cvar.c
 	gl_draw.c
