@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "winquake.h"
-#include "resource.h"
+//#include "resource.h"
 #include <commctrl.h>
 
 #define MAX_MODE_LIST		600 //30
@@ -1623,7 +1623,7 @@ void	VID_Init (unsigned char *palette)
 	Cmd_AddCommand ("vid_describemode", VID_DescribeMode_f);
 	Cmd_AddCommand ("vid_describemodes", VID_DescribeModes_f);
 
-	hIcon = LoadIcon (global_hInstance, MAKEINTRESOURCE (IDI_ICON2));
+	//hIcon = LoadIcon (global_hInstance, MAKEINTRESOURCE (IDI_ICON2));
 
 	InitCommonControls();
 
