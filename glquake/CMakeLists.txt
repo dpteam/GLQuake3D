@@ -1,0 +1,120 @@
+cmake_minimum_required(VERSION 3.12)
+
+set(SOURCES
+	cd_win.c
+	chase.c
+	cl_demo.c
+	cl_input.c
+	cl_main.c
+	cl_parse.c
+	cl_tent.c
+	common.c
+	conproc.c
+	console.c
+	cmd.c
+	crc.c
+	cvar.c
+	gl_draw.c
+	gl_mesh.c
+	gl_model.c
+	gl_refrag.c
+	gl_rlight.c
+	gl_rmain.c
+	gl_rmisc.c
+	gl_rsurf.c
+	gl_screen.c
+	gl_vidnt.c
+	gl_warp.c
+	host.c
+	host_cmd.c
+	in_win.c
+	keys.c
+	mathlib.c
+	menu.c
+	net_dgrm.c
+	net_loop.c
+	net_main.c
+	net_vcr.c
+	net_win.c
+	net_wins.c
+	net_wipx.c
+	pr_cmds.c
+	pr_edict.c
+	pr_exec.c
+	r_part.c
+	sbar.c
+	snd_dma.c
+	snd_mem.c
+	snd_mix.c
+	snd_win.c
+	sv_main.c
+	sv_move.c
+	sv_phys.c
+	sv_user.c
+	sys_win.c
+	view.c
+	wad.c
+	world.c
+	zone.c
+)
+
+set(HEADERS
+	bspfile.h
+	cdaudio.h
+	client.h
+	cmd.h
+	common.h
+	conproc.h
+	console.h
+	crc.h
+	cvar.h
+	d_iface.h
+	dosisms.h
+	draw.h
+	gl_model.h
+	glquake.h
+	input.h
+	keys.h
+	mathlib.h
+	menu.h
+	modelgen.h
+	net.h
+	net_dgrm.h
+	net_loop.h
+	net_ser.h
+	net_vcr.h
+	net_wins.h
+	net_wipx.h
+	pr_comp.h
+	progdefs.h
+	progdefs.q1
+	progs.h
+	protocol.h
+	quakedef.h
+	r_local.h
+	render.h
+	sbar.h
+	screen.h
+	server.h
+	sound.h
+	spritegn.h
+	sys.h
+	view.h
+	vid.h
+	wad.h
+	winquake.h
+	world.h
+	zone.h
+)
+
+set(LIBS
+	comctl32.lib
+	dxguid.lib
+	opengl32.lib
+	winmm.lib
+	wsock32.lib
+)
+
+add_compile_definitions(GLQUAKE)
+add_executable(GLQuake3D WIN32 ${SOURCES} ${HEADERS})
+target_link_libraries(GLQuake3D ${LIBS})
