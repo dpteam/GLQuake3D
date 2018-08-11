@@ -8,10 +8,10 @@ set(SOURCES
 	cl_main.c
 	cl_parse.c
 	cl_tent.c
+	cmd.c
 	common.c
 	conproc.c
 	console.c
-	cmd.c
 	crc.c
 	cvar.c
 	gl_draw.c
@@ -59,6 +59,8 @@ set(SOURCES
 )
 
 set(HEADERS
+	anorms.h
+	anorm_dots.h
 	bspfile.h
 	cdaudio.h
 	client.h
@@ -71,7 +73,9 @@ set(HEADERS
 	d_iface.h
 	dosisms.h
 	draw.h
+	dxguid.h
 	gl_model.h
+	gl_warp_sin.h
 	glquake.h
 	input.h
 	keys.h
@@ -99,8 +103,8 @@ set(HEADERS
 	sound.h
 	spritegn.h
 	sys.h
-	view.h
 	vid.h
+	view.h
 	wad.h
 	winquake.h
 	world.h
