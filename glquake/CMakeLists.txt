@@ -107,12 +107,21 @@ set(HEADERS
 	zone.h
 )
 
-set(LIBS
+set(WINDOWS_LIBS
 	comctl32.lib
-	dxguid.lib
 	opengl32.lib
 	winmm.lib
 	wsock32.lib
+)
+if(NOT XP_TOOLCHAIN)
+	set(WINDOWS_V6_LIBS
+		dxguid.lib
+	)
+endif()
+
+set(LIBS
+	${WINDOWS_LIBS}
+	${WINDOWS_V6_LIBS}
 )
 
 add_compile_definitions(GLQUAKE)
