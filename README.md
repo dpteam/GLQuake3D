@@ -1,5 +1,7 @@
 # GLQuake3D
 
+[![DepShield Badge](https://depshield.sonatype.org/badges/dpteam/GLQuake3D/depshield.svg)](https://depshield.github.io)
+
 This source-port is based on WinQuake/GLQuake and has such changes:
 1. Increased the engine limits
 2. Improved glowing on entities
