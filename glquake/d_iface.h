@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define WARP_WIDTH		320
 #define WARP_HEIGHT		200
 
-#define MAX_LBM_HEIGHT	480
+#define MAX_LBM_HEIGHT	1024 //480
 
 typedef struct
 {
@@ -110,13 +110,6 @@ extern cvar_t	r_drawflat;
 extern int		d_spanpixcount;
 extern int		r_framecount;		// sequence # of current frame since Quake
 									//  started
-extern qboolean	r_drawpolys;		// 1 if driver wants clipped polygons
-									//  rather than a span list
-extern qboolean	r_drawculledpolys;	// 1 if driver wants clipped polygons that
-									//  have been culled by the edge list
-extern qboolean	r_worldpolysbacktofront;	// 1 if driver wants polygons
-											//  delivered back to front rather
-											//  than front to back
 extern qboolean	r_recursiveaffinetriangles;	// true if a driver wants to use
 											//  recursive triangular subdivison
 											//  and vertex drawing via
@@ -159,7 +152,6 @@ void D_Init (void);
 void D_ViewChanged (void);
 void D_SetupFrame (void);
 void D_StartParticles (void);
-void D_TurnZOn (void);
 void D_WarpScreen (void);
 
 void D_FillRect (vrect_t *vrect, int color);

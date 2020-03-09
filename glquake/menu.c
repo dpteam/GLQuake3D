@@ -28,7 +28,6 @@ void (*vid_menukeyfn)(int key);
 
 enum {m_none, m_main, m_singleplayer, m_load, m_save, m_multiplayer, m_setup, m_net, m_options, m_video, m_keys, m_help, m_quit, m_serialconfig, m_modemconfig, m_lanconfig, m_gameoptions, m_search, m_slist} m_state;
 
-void M_Menu_Main_f (void);
 	void M_Menu_SinglePlayer_f (void);
 		void M_Menu_Load_f (void);
 		void M_Menu_Save_f (void);
@@ -1037,7 +1036,11 @@ again:
 /* OPTIONS MENU */
 
 #ifdef _WIN32
+#ifdef GLQUAKE
+#define	OPTIONS_ITEMS	15
+#else
 #define	OPTIONS_ITEMS	14
+#endif
 #else
 #define	OPTIONS_ITEMS	13
 #endif
@@ -1053,7 +1056,7 @@ void M_Menu_Options_f (void)
 	m_entersound = true;
 
 #ifdef _WIN32
-	if ((options_cursor == 13) && (modestate != MS_WINDOWED))
+	if ((options_cursor == OPTIONS_ITEMS - 1) && (modestate != MS_WINDOWED))
 	{
 		options_cursor = 0;
 	}
@@ -1063,53 +1066,60 @@ void M_Menu_Options_f (void)
 
 void M_AdjustSliders (int dir)
 {
+	float value;
+
 	S_LocalSound ("misc/menu3.wav");
 
 	switch (options_cursor)
 	{
 	case 3:	// screen size
-		scr_viewsize.value += dir * 10;
-		if (scr_viewsize.value < 30)
-			scr_viewsize.value = 30;
-		if (scr_viewsize.value > 120)
-			scr_viewsize.value = 120;
-		Cvar_SetValue ("viewsize", scr_viewsize.value);
+		value = scr_viewsize.value;
+		value += dir * 10;
+		if (value < 30)
+			value = 30;
+		if (value > 120)
+			value = 120;
+		Cvar_SetValue ("viewsize", value);
 		break;
 	case 4:	// gamma
-		v_gamma.value -= dir * 0.05;
-		if (v_gamma.value < 0.5)
-			v_gamma.value = 0.5;
-		if (v_gamma.value > 1)
-			v_gamma.value = 1;
-		Cvar_SetValue ("gamma", v_gamma.value);
+		value = v_gamma.value;
+		value -= dir * 0.05;
+		if (value < 0.5)
+			value = 0.5;
+		if (value > 1)
+			value = 1;
+		Cvar_SetValue ("gamma", value);
 		break;
 	case 5:	// mouse speed
-		sensitivity.value += dir * 0.5;
-		if (sensitivity.value < 1)
-			sensitivity.value = 1;
-		if (sensitivity.value > 11)
-			sensitivity.value = 11;
-		Cvar_SetValue ("sensitivity", sensitivity.value);
+		value = sensitivity.value;
+		value += dir * 0.5;
+		if (value < 1)
+			value = 1;
+		if (value > 11)
+			value = 11;
+		Cvar_SetValue ("sensitivity", value);
 		break;
 	case 6:	// music volume
+		value = bgmvolume.value;
 #ifdef _WIN32
-		bgmvolume.value += dir * 1.0;
+		value += dir * 1.0;
 #else
-		bgmvolume.value += dir * 0.1;
+		value += dir * 0.1;
 #endif
-		if (bgmvolume.value < 0)
-			bgmvolume.value = 0;
-		if (bgmvolume.value > 1)
-			bgmvolume.value = 1;
-		Cvar_SetValue ("bgmvolume", bgmvolume.value);
+		if (value < 0)
+			value = 0;
+		if (value > 1)
+			value = 1;
+		Cvar_SetValue ("bgmvolume", value);
 		break;
 	case 7:	// sfx volume
-		volume.value += dir * 0.1;
-		if (volume.value < 0)
-			volume.value = 0;
-		if (volume.value > 1)
-			volume.value = 1;
-		Cvar_SetValue ("volume", volume.value);
+		value = volume.value;
+		value += dir * 0.1;
+		if (value < 0)
+			value = 0;
+		if (value > 1)
+			value = 1;
+		Cvar_SetValue ("volume", value);
 		break;
 
 	case 8:	// allways run
@@ -1138,7 +1148,14 @@ void M_AdjustSliders (int dir)
 		break;
 
 #ifdef _WIN32
-	case 13:	// _windowed_mouse
+#ifdef GLQUAKE
+	case 13:	// model interpolation
+		Cvar_SetValue ("r_interpolate_model_animation", !r_interpolate_model_animation.value);
+		Cvar_SetValue ("r_interpolate_model_transform", !r_interpolate_model_transform.value);
+		break;
+#endif
+
+	case OPTIONS_ITEMS - 1:	// _windowed_mouse
 		Cvar_SetValue ("_windowed_mouse", !_windowed_mouse.value);
 		break;
 #endif
@@ -1223,11 +1240,16 @@ void M_Options_Draw (void)
 	if (vid_menudrawfn)
 		M_Print (16, 128, "         Video Options");
 
+#ifdef GLQUAKE
+	M_Print (16, 136, "         Interpolation");
+	M_DrawCheckbox (220, 136, r_interpolate_model_animation.value);
+#endif
+
 #ifdef _WIN32
 	if (modestate == MS_WINDOWED)
 	{
-		M_Print (16, 136, "             Use Mouse");
-		M_DrawCheckbox (220, 136, _windowed_mouse.value);
+		M_Print (16, 32 + (OPTIONS_ITEMS - 1) * 8, "             Use Mouse");
+		M_DrawCheckbox (220, 32 + (OPTIONS_ITEMS - 1) * 8, _windowed_mouse.value);
 	}
 #endif
 
@@ -1293,16 +1315,16 @@ void M_Options_Key (int k)
 	if (options_cursor == 12 && vid_menudrawfn == NULL)
 	{
 		if (k == K_UPARROW)
-			options_cursor = 11;
+			--options_cursor;
 		else
-			options_cursor = 0;
+			++options_cursor;
 	}
 
 #ifdef _WIN32
-	if ((options_cursor == 13) && (modestate != MS_WINDOWED))
+	if ((options_cursor == OPTIONS_ITEMS - 1) && (modestate != MS_WINDOWED))
 	{
 		if (k == K_UPARROW)
-			options_cursor = 12;
+			--options_cursor;
 		else
 			options_cursor = 0;
 	}
@@ -2384,6 +2406,8 @@ typedef struct
 	char	*name;
 	char	*description;
 } level_t;
+
+// levels RARARA
 
 level_t		levels[] =
 {

@@ -32,23 +32,37 @@ ALIAS MODEL DISPLAY LIST GENERATION
 model_t		*aliasmodel;
 aliashdr_t	*paliashdr;
 
-qboolean	used[8192];
+#define MAX_CMDS 16384 //8192
+
+qboolean	used[MAX_CMDS];
 
 // the command list holds counts and s/t values that are valid for
 // every frame
-int		commands[8192];
+int		commands[MAX_CMDS];
 int		numcommands;
 
 // all frames will have their vertexes rearranged and expanded
 // so they are in the order expected by the command list
-int		vertexorder[8192];
+int		vertexorder[MAX_CMDS];
 int		numorder;
 
-int		allverts, alltris;
+#define MAX_STRIPS 256 //128
 
-int		stripverts[128];
-int		striptris[128];
+int		stripverts[MAX_STRIPS];
+int		striptris[MAX_STRIPS];
 int		stripcount;
+
+static void ChkStrip (char *Function)
+{
+	if (stripcount + 2 >= MAX_STRIPS)
+		Sys_Error ("%s: too high stripcount (max = %d) in %s", Function, MAX_STRIPS - 2, aliasmodel->name);
+}
+
+static void ChkCmds (char *Function)
+{
+	if (numcommands >= MAX_CMDS)
+		Sys_Error ("%s: too many commands (max = %d) in %s", Function, MAX_CMDS, aliasmodel->name);
+}
 
 /*
 ================
@@ -100,6 +114,8 @@ nexttri:
 				m2 = check->vertindex[ (k+2)%3 ];
 			else
 				m1 = check->vertindex[ (k+2)%3 ];
+
+			ChkStrip ("StripLength");
 
 			stripverts[stripcount+2] = check->vertindex[ (k+2)%3 ];
 			striptris[stripcount] = j;
@@ -168,6 +184,8 @@ nexttri:
 			// the new edge
 			m2 = check->vertindex[ (k+2)%3 ];
 
+			ChkStrip ("FanLength");
+
 			stripverts[stripcount+2] = m2;
 			striptris[stripcount] = j;
 			stripcount++;
@@ -203,13 +221,14 @@ void BuildTris (void)
 	int		m1, m2;
 	int		striplength;
 	trivertx_t	*v;
-	mtriangle_t *tv;
-	float	s, t;
+	mtriangle_t	*tv;
+	float		s, t;
 	int		index;
 	int		len, bestlen, besttype;
 	int		bestverts[1024];
 	int		besttris[1024];
 	int		type;
+	int		stripmax = 0;
 
 	//
 	// build tristrips
@@ -233,6 +252,11 @@ void BuildTris (void)
 					len = StripLength (i, startv);
 				else
 					len = FanLength (i, startv);
+				
+				// Save peak
+				if (len > stripmax)
+					stripmax = len;
+
 				if (len > bestlen)
 				{
 					besttype = type;
@@ -248,6 +272,8 @@ void BuildTris (void)
 		// mark the tris on the best strip as used
 		for (j=0 ; j<bestlen ; j++)
 			used[besttris[j]] = 1;
+
+		ChkCmds ("BuildTris");
 
 		if (besttype == 1)
 			commands[numcommands++] = (bestlen+2);
@@ -268,17 +294,34 @@ void BuildTris (void)
 			s = (s + 0.5) / pheader->skinwidth;
 			t = (t + 0.5) / pheader->skinheight;
 
+			ChkCmds ("BuildTris");
+
 			*(float *)&commands[numcommands++] = s;
 			*(float *)&commands[numcommands++] = t;
 		}
 	}
 
+	ChkCmds ("BuildTris");
+
 	commands[numcommands++] = 0;		// end of list marker
 
-	Con_DPrintf ("%3i tri %3i vert %3i cmd\n", pheader->numtris, numorder, numcommands);
+	// Check old limit
+	if (stripmax + 2 >= 128)
+	{
+		Con_Printf ("\002BuildTris: ");
+		Con_Printf ("excessive stripcount (%d, normal max = %d) in %s\n", stripmax, 128 - 2, aliasmodel->name);
+	}
 
-	allverts += numorder;
-	alltris += pheader->numtris;
+	// Check old limit
+	if (numcommands >= 8192)
+	{
+		Con_Printf ("\002BuildTris: ");
+		Con_Printf ("excessive commands (%d, normal max = %d) in %s\n", numcommands, 8192, aliasmodel->name);
+	}
+
+#ifndef NO_CACHE_MESH
+	Con_DPrintf ("%3i tri %3i vert %3i cmd\n", pheader->numtris, numorder, numcommands);
+#endif
 }
 
 
@@ -301,6 +344,9 @@ void GL_MakeAliasModelDisplayLists (model_t *m, aliashdr_t *hdr)
 	aliasmodel = m;
 	paliashdr = hdr;	// (aliashdr_t *)Mod_Extradata (m);
 
+#ifdef NO_CACHE_MESH
+	BuildTris ();		// trifans or lists
+#else
 	//
 	// look for a cached version
 	//
@@ -322,7 +368,7 @@ void GL_MakeAliasModelDisplayLists (model_t *m, aliashdr_t *hdr)
 		//
 		// build it from scratch
 		//
-		Con_Printf ("meshing %s...\n",m->name);
+		Con_SafePrintf ("meshing %s...\n",m->name);
 
 		BuildTris ();		// trifans or lists
 
@@ -340,7 +386,7 @@ void GL_MakeAliasModelDisplayLists (model_t *m, aliashdr_t *hdr)
 			fclose (f);
 		}
 	}
-
+#endif
 
 	// save the data out
 
@@ -354,7 +400,14 @@ void GL_MakeAliasModelDisplayLists (model_t *m, aliashdr_t *hdr)
 		* sizeof(trivertx_t) );
 	paliashdr->posedata = (byte *)verts - (byte *)paliashdr;
 	for (i=0 ; i<paliashdr->numposes ; i++)
+	{
 		for (j=0 ; j<numorder ; j++)
+		{
+			if (vertexorder[j] < 0 || vertexorder[j] >= MAXALIASVERTS)
+				Sys_Error ("GL_MakeAliasModelDisplayLists: invalid vertexorder[%d] (%d, max = %d) in %s", j, vertexorder[j], MAXALIASVERTS, m->name);
+
 			*verts++ = poseverts[i][vertexorder[j]];
+		}
+	}
 }
 

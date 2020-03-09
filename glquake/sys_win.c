@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -21,12 +21,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "winquake.h"
-#include "errno.h"
-#include "resource.h"
+#include <errno.h>
+//#include "resource.h"
 #include "conproc.h"
+#include <direct.h>
 
-#define MINIMUM_WIN_MEMORY		0x0880000
-#define MAXIMUM_WIN_MEMORY		0x1000000
+#define MINIMUM_WIN_MEMORY		0x2000000 //  32 MB //0x0C00000 // 12 MB 0x0880000
+#define MAXIMUM_WIN_MEMORY		0x8000000 // 128 MB //0x2000000 // 32 MB 0x1000000
 
 #define CONSOLE_ERROR_TIMEOUT	60.0	// # of seconds to wait on Sys_Error running
 										//  dedicated before exiting
@@ -94,13 +95,13 @@ FILE IO
 ===============================================================================
 */
 
-#define	MAX_HANDLES		10
+#define	MAX_HANDLES		100 //10
 FILE	*sys_handles[MAX_HANDLES];
 
 int		findhandle (void)
 {
 	int		i;
-	
+
 	for (i=1 ; i<MAX_HANDLES ; i++)
 		if (!sys_handles[i])
 			return i;
@@ -167,14 +168,14 @@ int Sys_FileOpenWrite (char *path)
 	int		t;
 
 	t = VID_ForceUnlockedAndReturnState ();
-	
+
 	i = findhandle ();
 
 	f = fopen(path, "wb");
 	if (!f)
 		Sys_Error ("Error opening %s: %s", path,strerror(errno));
 	sys_handles[i] = f;
-	
+
 	VID_ForceLockState (t);
 
 	return i;
@@ -225,7 +226,7 @@ int	Sys_FileTime (char *path)
 	int		t, retval;
 
 	t = VID_ForceUnlockedAndReturnState ();
-	
+
 	f = fopen(path, "rb");
 
 	if (f)
@@ -237,7 +238,7 @@ int	Sys_FileTime (char *path)
 	{
 		retval = -1;
 	}
-	
+
 	VID_ForceLockState (t);
 	return retval;
 }
@@ -270,8 +271,6 @@ void Sys_MakeCodeWriteable (unsigned long startaddr, unsigned long length)
 }
 
 
-#ifndef _M_IX86
-
 void Sys_SetFPCW (void)
 {
 }
@@ -287,8 +286,6 @@ void Sys_PopFPCW (void)
 void MaskExceptions (void)
 {
 }
-
-#endif
 
 /*
 ================
@@ -346,7 +343,7 @@ void Sys_Init (void)
 void Sys_Error (char *error, ...)
 {
 	va_list		argptr;
-	char		text[1024], text2[1024];
+	char		text[MAX_PRINTMSG], text2[MAX_PRINTMSG]; //1024
 	char		*text3 = "Press Enter to exit\n";
 	char		*text4 = "***********************************\n";
 	char		*text5 = "\n";
@@ -364,22 +361,55 @@ void Sys_Error (char *error, ...)
 	}
 
 	va_start (argptr, error);
-	vsprintf (text, error, argptr);
+	COM_vsnprintf ("Sys_Error", text, sizeof(text) - 1, error, argptr);
 	va_end (argptr);
+
+	COM_snprintf ("Sys_Error", text2, sizeof(text2) - 1, "ERROR: %s\n", text);
+
+#ifdef _DEBUG
+#ifdef NOISE
+	// Hook for noise generator in Mod_LoadModel
+	// If zone is exhausted, abort for real
+	if (strncmp(text, "Z_Malloc", 8))
+	{
+		extern sizebuf_t cmd_text;
+		static float	 Start;
+		static qboolean  Done = false;
+
+		if (!Done)
+		{
+			Start = Sys_FloatTime ();
+			Done = true;
+		}
+
+		// Don't restart for too long
+		if (Sys_FloatTime () - Start > 60)
+		{
+			Done = false;
+			Con_Printf ("\n*** auto restart timeout\n\n");
+		}
+		else
+		{
+			char Str[256];
+
+			// Turn into Host_Error and reload same map
+			sprintf (Str, "map %s\nexec mangle.cfg\n", sv.name);
+			SZ_Clear (&cmd_text); // Prevent accumulation
+			Cbuf_InsertText (Str);
+		}
+
+		Host_Error (text2);
+	}
+#endif
+#endif
 
 	if (isDedicated)
 	{
-		va_start (argptr, error);
-		vsprintf (text, error, argptr);
-		va_end (argptr);
-
-		sprintf (text2, "ERROR: %s\n", text);
 		WriteFile (houtput, text5, strlen (text5), &dummy, NULL);
 		WriteFile (houtput, text4, strlen (text4), &dummy, NULL);
 		WriteFile (houtput, text2, strlen (text2), &dummy, NULL);
 		WriteFile (houtput, text3, strlen (text3), &dummy, NULL);
 		WriteFile (houtput, text4, strlen (text4), &dummy, NULL);
-
 
 		starttime = Sys_FloatTime ();
 		sc_return_on_enter = true;	// so Enter will get us out of here
@@ -391,20 +421,35 @@ void Sys_Error (char *error, ...)
 	}
 	else
 	{
+		qboolean NoMsgBox = COM_CheckParm ("-nomsgbox") != 0;
+
+		Con_DPrintf ("\n%s", text2); // If enabled, write to console log as well
+
+		// Prevent screen updates, otherwise secondary faults might
+		// occur and mask the real error
+		block_drawing = true;
+
+		S_ClearBuffer (); // Avoid looping sounds
+
 	// switch to windowed so the message box is visible, unless we already
 	// tried that and failed
 		if (!in_sys_error0)
 		{
 			in_sys_error0 = 1;
 			VID_SetDefaultMode ();
-			MessageBox(NULL, text, "Quake Error",
+
+			if (!NoMsgBox)
+				MessageBox(NULL, text, "Quake Error",
 					   MB_OK | MB_SETFOREGROUND | MB_ICONSTOP);
 		}
 		else
 		{
-			MessageBox(NULL, text, "Double Quake Error",
+			if (!NoMsgBox)
+				MessageBox(NULL, text, "Double Quake Error",
 					   MB_OK | MB_SETFOREGROUND | MB_ICONSTOP);
 		}
+
+		block_drawing = false; // Make sure to restore
 	}
 
 	if (!in_sys_error1)
@@ -425,17 +470,17 @@ void Sys_Error (char *error, ...)
 
 void Sys_Printf (char *fmt, ...)
 {
-	va_list		argptr;
-	char		text[1024];
-	DWORD		dummy;
-	
+	va_list	argptr;
+	char	text[MAX_PRINTMSG]; //1024
+	DWORD	dummy;
+
 	if (isDedicated)
 	{
 		va_start (argptr,fmt);
-		vsprintf (text, fmt, argptr);
+		COM_vsnprintf ("Sys_Printf", text, sizeof(text) - 1, fmt, argptr);
 		va_end (argptr);
 
-		WriteFile(houtput, text, strlen (text), &dummy, NULL);	
+		WriteFile(houtput, text, strlen (text), &dummy, NULL);
 	}
 }
 
@@ -588,7 +633,7 @@ char *Sys_ConsoleInput (void)
 				switch (ch)
 				{
 					case '\r':
-						WriteFile(houtput, "\r\n", 2, &dummy, NULL);	
+						WriteFile(houtput, "\r\n", 2, &dummy, NULL);
 
 						if (len)
 						{
@@ -607,7 +652,7 @@ char *Sys_ConsoleInput (void)
 						break;
 
 					case '\b':
-						WriteFile(houtput, "\b \b", 3, &dummy, NULL);	
+						WriteFile(houtput, "\b \b", 3, &dummy, NULL);
 						if (len)
 						{
 							len--;
@@ -617,7 +662,7 @@ char *Sys_ConsoleInput (void)
 					default:
 						if (ch >= ' ')
 						{
-							WriteFile(houtput, &ch, 1, &dummy, NULL);	
+							WriteFile(houtput, &ch, 1, &dummy, NULL);
 							text[len] = ch;
 							len = (len + 1) & 0xff;
 						}
@@ -739,7 +784,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 				*lpCmdLine = 0;
 				lpCmdLine++;
 			}
-			
+
 		}
 	}
 
@@ -752,9 +797,9 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	isDedicated = (COM_CheckParm ("-dedicated") != 0);
 
-	if (!isDedicated)
+	/*if (!isDedicated)
 	{
-		hwnd_dialog = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, NULL);
+		hwnd_dialog = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_PROGRESS1), NULL, NULL);
 
 		if (hwnd_dialog)
 		{
@@ -773,7 +818,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 			UpdateWindow (hwnd_dialog);
 			SetForegroundWindow (hwnd_dialog);
 		}
-	}
+	}*/
 
 // take the greater of all the available memory or half the total memory,
 // but at least 8 Mb and no more than 16 Mb, unless they explicitly
@@ -825,13 +870,13 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 			if (t < com_argc)
 				hFile = (HANDLE)Q_atoi (com_argv[t+1]);
 		}
-			
+
 		if ((t = COM_CheckParm ("-HPARENT")) > 0)
 		{
 			if (t < com_argc)
 				heventParent = (HANDLE)Q_atoi (com_argv[t+1]);
 		}
-			
+
 		if ((t = COM_CheckParm ("-HCHILD")) > 0)
 		{
 			if (t < com_argc)
@@ -868,6 +913,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 		}
 		else
 		{
+#ifndef NOISE
 		// yield the CPU for a little while when paused, minimized, or not the focus
 			if ((cl.paused && (!ActiveApp && !DDActive)) || Minimized || block_drawing)
 			{
@@ -878,6 +924,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 			{
 				SleepUntilInput (NOT_FOCUS_SLEEP);
 			}
+#endif
 
 			newtime = Sys_FloatTime ();
 			time = newtime - oldtime;
@@ -885,6 +932,10 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 		Host_Frame (time);
 		oldtime = newtime;
+#ifdef _DEBUG
+_CrtCheckMemory ();
+Hunk_Check ();
+#endif
 	}
 
     /* return success of application */

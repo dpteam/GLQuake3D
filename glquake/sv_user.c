@@ -42,7 +42,7 @@ qboolean	onground;
 usercmd_t	cmd;
 
 cvar_t	sv_idealpitchscale = {"sv_idealpitchscale","0.8"};
-
+cvar_t	sv_altnoclip = {"sv_altnoclip", "0"};
 
 /*
 ===============
@@ -316,6 +316,28 @@ void SV_WaterJump (void)
 	sv_player->v.velocity[1] = sv_player->v.movedir[1];
 }
 
+/*
+===================
+SV_NoclipMove
+
+new, alternate noclip. old noclip is still handled in SV_AirMove
+===================
+*/
+void SV_NoclipMove (void)
+{
+	AngleVectors (sv_player->v.v_angle, forward, right, up);
+	
+	velocity[0] = forward[0]*cmd.forwardmove + right[0]*cmd.sidemove;
+	velocity[1] = forward[1]*cmd.forwardmove + right[1]*cmd.sidemove;
+	velocity[2] = forward[2]*cmd.forwardmove + right[2]*cmd.sidemove;
+	velocity[2] += cmd.upmove*2; //doubled to match running speed
+		
+	if (Length (velocity) > sv_maxspeed.value)
+	{
+		VectorNormalize (velocity);
+		VectorScale (velocity, sv_maxspeed.value, velocity);
+	}
+}
 
 /*
 ===================
@@ -411,6 +433,9 @@ void SV_ClientThink (void)
 		angles[YAW] = v_angle[YAW];
 	}
 
+	if (sv_player->v.movetype == MOVETYPE_NOCLIP)
+		sv_player->v.waterlevel = 0; // Avoid annoying waterjumps in noclip
+
 	if ( (int)sv_player->v.flags & FL_WATERJUMP )
 	{
 		SV_WaterJump ();
@@ -419,14 +444,13 @@ void SV_ClientThink (void)
 //
 // walk
 //
-	if ( (sv_player->v.waterlevel >= 2)
-	&& (sv_player->v.movetype != MOVETYPE_NOCLIP) )
-	{
+	// Alternate noclip
+	if (sv_altnoclip.value && sv_player->v.movetype == MOVETYPE_NOCLIP)
+		SV_NoclipMove ();
+	else if (sv_player->v.waterlevel >= 2 && sv_player->v.movetype != MOVETYPE_NOCLIP)
 		SV_WaterMove ();
-		return;
-	}
-
-	SV_AirMove ();	
+	else
+		SV_AirMove ();	
 }
 
 
@@ -531,17 +555,37 @@ nextmsg:
 					ret = 2;
 				else
 					ret = 0;
+				
+				if (nehahra)
+				{
+					if (Q_strncasecmp(s, "max", 3) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "monster", 7) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "scrag", 5) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "wraith", 6) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "gimme", 5) == 0)
+						ret = 1;
+				}
+				else
+				{
+					if (Q_strncasecmp(s, "god", 3) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "notarget", 8) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "fly", 3) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "noclip", 6) == 0)
+						ret = 1;
+					else if (Q_strncasecmp(s, "give", 4) == 0)
+						ret = 1;
+				}
+
 				if (Q_strncasecmp(s, "status", 6) == 0)
 					ret = 1;
-				else if (Q_strncasecmp(s, "god", 3) == 0)
-					ret = 1;
-				else if (Q_strncasecmp(s, "notarget", 8) == 0)
-					ret = 1;
-				else if (Q_strncasecmp(s, "fly", 3) == 0)
-					ret = 1;
 				else if (Q_strncasecmp(s, "name", 4) == 0)
-					ret = 1;
-				else if (Q_strncasecmp(s, "noclip", 6) == 0)
 					ret = 1;
 				else if (Q_strncasecmp(s, "say", 3) == 0)
 					ret = 1;
@@ -564,8 +608,6 @@ nextmsg:
 				else if (Q_strncasecmp(s, "kick", 4) == 0)
 					ret = 1;
 				else if (Q_strncasecmp(s, "ping", 4) == 0)
-					ret = 1;
-				else if (Q_strncasecmp(s, "give", 4) == 0)
 					ret = 1;
 				else if (Q_strncasecmp(s, "ban", 3) == 0)
 					ret = 1;
@@ -622,7 +664,7 @@ void SV_RunClients (void)
 		}
 
 // always pause in single player if in console or menus
-		if (!sv.paused && (svs.maxclients > 1 || key_dest == key_game) )
+		if (!SV_IsPaused ())
 			SV_ClientThink ();
 	}
 }

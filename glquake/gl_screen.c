@@ -82,8 +82,9 @@ float		scr_conlines;		// lines of console to display
 float		oldscreensize, oldfov;
 cvar_t		scr_viewsize = {"viewsize","100", true};
 cvar_t		scr_fov = {"fov","90"};	// 10 - 170
-cvar_t		scr_conspeed = {"scr_conspeed","300"};
+cvar_t		scr_conspeed = {"scr_conspeed","5000"}; //300
 cvar_t		scr_centertime = {"scr_centertime","2"};
+cvar_t		scr_showedicts = {"scr_showedicts", "0"}; // Show active and max edicts
 cvar_t		scr_showram = {"showram","1"};
 cvar_t		scr_showturtle = {"showturtle","0"};
 cvar_t		scr_showpause = {"showpause","1"};
@@ -112,6 +113,10 @@ vrect_t		scr_vrect;
 qboolean	scr_disabled_for_loading;
 qboolean	scr_drawloading;
 float		scr_disabled_time;
+
+#define SCR_DEFTIMEOUT 60
+
+static float	scr_timeout;
 
 qboolean	block_drawing;
 
@@ -142,6 +147,8 @@ for a few moments
 */
 void SCR_CenterPrint (char *str)
 {
+	Con_LogCenterPrint (str);
+
 	strncpy (scr_centerstring, str, sizeof(scr_centerstring)-1);
 	scr_centertime_off = scr_centertime.value;
 	scr_centertime_start = cl.time;
@@ -194,6 +201,9 @@ void SCR_DrawCenterString (void)
 		}
 			
 		y += 8;
+
+		if (y >= vid.height)
+			break; // Outside screen
 
 		while (*start && *start != '\n')
 			start++;
@@ -373,6 +383,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_fov);
 	Cvar_RegisterVariable (&scr_viewsize);
 	Cvar_RegisterVariable (&scr_conspeed);
+	Cvar_RegisterVariable (&scr_showedicts);
 	Cvar_RegisterVariable (&scr_showram);
 	Cvar_RegisterVariable (&scr_showturtle);
 	Cvar_RegisterVariable (&scr_showpause);
@@ -394,7 +405,30 @@ void SCR_Init (void)
 	scr_initialized = true;
 }
 
+/*
+==============
+SCR_DrawEdicts
+==============
+*/
+void SCR_DrawEdicts (void)
+{
+	int  y;
+	char Str[100];
+	
+	if (!scr_showedicts.value)
+		return;
 
+	if (sv.num_edicts)
+		sprintf (Str, "%d (%d)", sv.active_edicts, sv.num_edicts); // Show current active + max edicts
+	else
+		sprintf (Str, "%d", cl.num_entities); // Show edicts e.g. when running a demo
+	
+	strcat (Str, " Edicts");
+
+	y = vid.height - 8; // Draw in lower right corner regardless of status bar; not nice
+
+	Draw_String (vid.width - (strlen(Str)<<3), y, Str);
+}
 
 /*
 ==============
@@ -643,6 +677,15 @@ void SCR_ScreenShot_f (void)
 
 //=============================================================================
 
+/*
+===============
+SCR_SetTimeout
+================
+*/
+void SCR_SetTimeout (float timeout)
+{
+	scr_timeout = timeout;
+}
 
 /*
 ===============
@@ -672,6 +715,7 @@ void SCR_BeginLoadingPlaque (void)
 
 	scr_disabled_for_loading = true;
 	scr_disabled_time = realtime;
+	SCR_SetTimeout (SCR_DEFTIMEOUT);
 	scr_fullupdate = 0;
 }
 
@@ -833,10 +877,12 @@ void SCR_UpdateScreen (void)
 
 	if (scr_disabled_for_loading)
 	{
-		if (realtime - scr_disabled_time > 60)
+		if (realtime - scr_disabled_time > scr_timeout)
 		{
 			scr_disabled_for_loading = false;
-			Con_Printf ("load failed.\n");
+			
+			if (scr_timeout == SCR_DEFTIMEOUT)
+				Con_Printf ("load failed.\n");
 		}
 		else
 			return;
@@ -912,6 +958,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawPause ();
 		SCR_CheckDrawCenterString ();
 		Sbar_Draw ();
+		SCR_DrawEdicts (); // Draws on top of status bar
 		SCR_DrawConsole ();	
 		M_Draw ();
 	}

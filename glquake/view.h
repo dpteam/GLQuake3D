@@ -26,10 +26,12 @@ extern	byte		ramps[3][256];
 extern float v_blend[4];
 
 extern cvar_t lcd_x;
-
+extern cvar_t gl_polyblend;
 
 void V_Init (void);
 void V_RenderView (void);
 float V_CalcRoll (vec3_t angles, vec3_t velocity);
+void V_CalcBlend (void);
+void V_NewPalette (void);
 void V_UpdatePalette (void);
 

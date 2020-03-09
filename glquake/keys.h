@@ -56,6 +56,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	K_HOME			151
 #define	K_END			152
 
+#define	K_CAPSLOCK		153
+
 #define K_PAUSE			255
 
 //

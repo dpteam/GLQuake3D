@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -35,13 +35,14 @@ void	R_InitTextures (void)
 
 // create a simple checkerboard texture for the default
 	r_notexture_mip = Hunk_AllocName (sizeof(texture_t) + 16*16+8*8+4*4+2*2, "notexture");
-	
+
+	strcpy (r_notexture_mip->name, "notexture");
 	r_notexture_mip->width = r_notexture_mip->height = 16;
 	r_notexture_mip->offsets[0] = sizeof(texture_t);
 	r_notexture_mip->offsets[1] = r_notexture_mip->offsets[0] + 16*16;
 	r_notexture_mip->offsets[2] = r_notexture_mip->offsets[1] + 8*8;
 	r_notexture_mip->offsets[3] = r_notexture_mip->offsets[2] + 4*4;
-	
+
 	for (m=0 ; m<4 ; m++)
 	{
 		dest = (byte *)r_notexture_mip + r_notexture_mip->offsets[m];
@@ -53,7 +54,7 @@ void	R_InitTextures (void)
 				else
 					*dest++ = 0xff;
 			}
-	}	
+	}
 }
 
 byte	dottexture[8][8] =
@@ -123,39 +124,39 @@ void R_Envmap_f (void)
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 	R_RenderView ();
 	glReadPixels (0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	COM_WriteFile ("env0.rgb", buffer, sizeof(buffer));		
+	COM_WriteFile ("env0.rgb", buffer, sizeof(buffer));
 
 	r_refdef.viewangles[1] = 90;
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 	R_RenderView ();
 	glReadPixels (0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	COM_WriteFile ("env1.rgb", buffer, sizeof(buffer));		
+	COM_WriteFile ("env1.rgb", buffer, sizeof(buffer));
 
 	r_refdef.viewangles[1] = 180;
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 	R_RenderView ();
 	glReadPixels (0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	COM_WriteFile ("env2.rgb", buffer, sizeof(buffer));		
+	COM_WriteFile ("env2.rgb", buffer, sizeof(buffer));
 
 	r_refdef.viewangles[1] = 270;
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 	R_RenderView ();
 	glReadPixels (0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	COM_WriteFile ("env3.rgb", buffer, sizeof(buffer));		
+	COM_WriteFile ("env3.rgb", buffer, sizeof(buffer));
 
 	r_refdef.viewangles[0] = -90;
 	r_refdef.viewangles[1] = 0;
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 	R_RenderView ();
 	glReadPixels (0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	COM_WriteFile ("env4.rgb", buffer, sizeof(buffer));		
+	COM_WriteFile ("env4.rgb", buffer, sizeof(buffer));
 
 	r_refdef.viewangles[0] = 90;
 	r_refdef.viewangles[1] = 0;
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 	R_RenderView ();
 	glReadPixels (0, 0, 256, 256, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	COM_WriteFile ("env5.rgb", buffer, sizeof(buffer));		
+	COM_WriteFile ("env5.rgb", buffer, sizeof(buffer));
 
 	envmap = false;
 	glDrawBuffer  (GL_BACK);
@@ -169,13 +170,16 @@ R_Init
 ===============
 */
 void R_Init (void)
-{	
+{
 	extern byte *hunk_base;
-	extern cvar_t gl_finish;
 
-	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);	
-	Cmd_AddCommand ("envmap", R_Envmap_f);	
-	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);	
+	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);
+	Cmd_AddCommand ("envmap", R_Envmap_f);
+	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);
+	Cmd_AddCommand ("sky", R_SkyCommand_f);
+	Cmd_AddCommand ("loadsky", R_SkyCommand_f); // Nehahra
+	Cmd_AddCommand ("fog", R_Fog_f);
+	Cmd_AddCommand ("lightmaps", GL_LightMaps_f);
 
 	Cvar_RegisterVariable (&r_norefresh);
 	Cvar_RegisterVariable (&r_lightmap);
@@ -188,6 +192,14 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_dynamic);
 	Cvar_RegisterVariable (&r_novis);
 	Cvar_RegisterVariable (&r_speeds);
+	Cvar_RegisterVariable (&r_flatlightstyles);
+	Cvar_RegisterVariable (&r_waterwarp);
+	Cvar_RegisterVariable (&r_clearcolor);
+	Cvar_RegisterVariable (&r_oldsky);
+	Cvar_RegisterVariable (&r_skytq);
+	Cvar_RegisterVariable (&r_interpolate_model_animation);
+	Cvar_RegisterVariable (&r_interpolate_model_transform);
+	Cvar_RegisterVariable (&r_interpolate_model_weapon);
 
 	Cvar_RegisterVariable (&gl_finish);
 	Cvar_RegisterVariable (&gl_clear);
@@ -205,9 +217,18 @@ void R_Init (void)
 	Cvar_RegisterVariable (&gl_nocolors);
 
 	Cvar_RegisterVariable (&gl_keeptjunctions);
-	Cvar_RegisterVariable (&gl_reporttjunctions);
 
 	Cvar_RegisterVariable (&gl_doubleeyes);
+
+	// Fog
+	Cvar_RegisterVariable (&gl_fogenable);
+	Cvar_RegisterVariable (&gl_fogdensity);
+	Cvar_RegisterVariable (&gl_fogred);
+	Cvar_RegisterVariable (&gl_foggreen);
+	Cvar_RegisterVariable (&gl_fogblue);
+	Cvar_RegisterVariable (&gl_skyclip);
+	Cvar_RegisterVariable (&gl_alphablend);
+	Cvar_RegisterVariable (&gl_oldspr);
 
 	R_InitParticles ();
 	R_InitParticleTexture ();
@@ -217,7 +238,10 @@ void R_Init (void)
 #endif
 
 	playertextures = texture_extension_number;
-	texture_extension_number += 16;
+	texture_extension_number += MAX_SCOREBOARD; //16
+
+	skyboxtextures = texture_extension_number;
+	texture_extension_number += 6;
 }
 
 /*
@@ -230,18 +254,31 @@ Translates a skin texture by the per-player color lookup
 void R_TranslatePlayerSkin (int playernum)
 {
 	int		top, bottom;
-	byte	translate[256];
+	byte		translate[256];
 	unsigned	translate32[256];
 	int		i, j, s;
-	model_t	*model;
-	aliashdr_t *paliashdr;
-	byte	*original;
-	unsigned	pixels[512*256], *out;
+	model_t		*model;
+	aliashdr_t	*paliashdr;
+	byte		*original;
+	unsigned	*out;
 	unsigned	scaled_width, scaled_height;
-	int			inwidth, inheight;
+	int		inwidth, inheight;
 	byte		*inrow;
 	unsigned	frac, fracstep;
-	extern	byte		**player_8bit_texels_tbl;
+	extern	byte	**player_8bit_texels_tbl;
+	char		name[64];
+	unsigned	*pixels = NULL;
+	int		pixsize = 0;
+
+	//
+	// locate the original skin pixels
+	//
+	currententity = &cl_entities[1+playernum];
+	model = currententity->model;
+	if (!model)
+		return;		// player doesn't have a model yet
+	if (model->type != mod_alias)
+		return; // only translate skins on alias models
 
 	GL_DisableMultitexture();
 
@@ -257,32 +294,22 @@ void R_TranslatePlayerSkin (int playernum)
 			translate[TOP_RANGE+i] = top+i;
 		else
 			translate[TOP_RANGE+i] = top+15-i;
-				
+
 		if (bottom < 128)
 			translate[BOTTOM_RANGE+i] = bottom+i;
 		else
 			translate[BOTTOM_RANGE+i] = bottom+15-i;
 	}
 
-	//
-	// locate the original skin pixels
-	//
-	currententity = &cl_entities[1+playernum];
-	model = currententity->model;
-	if (!model)
-		return;		// player doesn't have a model yet
-	if (model->type != mod_alias)
-		return; // only translate skins on alias models
-
 	paliashdr = (aliashdr_t *)Mod_Extradata (model);
 	s = paliashdr->skinwidth * paliashdr->skinheight;
 	if (currententity->skinnum < 0 || currententity->skinnum >= paliashdr->numskins) {
-		Con_Printf("(%d): Invalid player skin #%d\n", playernum, currententity->skinnum);
+//		Con_Printf("R_TranslatePlayerSkin: player %d: no such skin %d (%d skins) in %s\n", playernum, currententity->skinnum, paliashdr->numskins, currententity->model->name);
 		original = (byte *)paliashdr + paliashdr->texels[0];
 	} else
 		original = (byte *)paliashdr + paliashdr->texels[currententity->skinnum];
 	if (s & 3)
-		Sys_Error ("R_TranslateSkin: s&3");
+		Sys_Error ("R_TranslateSkin: size is not a multiple of 4 in %s", s, currententity->model->name);
 
 	inwidth = paliashdr->skinwidth;
 	inheight = paliashdr->skinheight;
@@ -313,35 +340,15 @@ void R_TranslatePlayerSkin (int playernum)
 	scaled_width >>= (int)gl_playermip.value;
 	scaled_height >>= (int)gl_playermip.value;
 
-	if (VID_Is8bit()) { // 8bit texture upload
-		byte *out2;
-
-		out2 = (byte *)pixels;
-		memset(pixels, 0, sizeof(pixels));
-		fracstep = inwidth*0x10000/scaled_width;
-		for (i=0 ; i<scaled_height ; i++, out2 += scaled_width)
-		{
-			inrow = original + inwidth*(i*inheight/scaled_height);
-			frac = fracstep >> 1;
-			for (j=0 ; j<scaled_width ; j+=4)
-			{
-				out2[j] = translate[inrow[frac>>16]];
-				frac += fracstep;
-				out2[j+1] = translate[inrow[frac>>16]];
-				frac += fracstep;
-				out2[j+2] = translate[inrow[frac>>16]];
-				frac += fracstep;
-				out2[j+3] = translate[inrow[frac>>16]];
-				frac += fracstep;
-			}
-		}
-
-		GL_Upload8_EXT ((byte *)pixels, scaled_width, scaled_height, false, false);
-		return;
-	}
+	// Prevent too large or too small images (might otherwise crash resampling)
+	scaled_width = max(2, scaled_width);
+	scaled_height = max(2, scaled_height);
 
 	for (i=0 ; i<256 ; i++)
 		translate32[i] = d_8to24table[translate[i]];
+
+	sprintf (name, "player_%i", playernum);
+	pixels = COM_AllocBuf ("R_TranslatePlayerSkin", pixels, &pixsize, scaled_width * scaled_height * sizeof(unsigned), 512 * 256 * sizeof(unsigned), name);
 
 	out = pixels;
 	fracstep = inwidth*0x10000/scaled_width;
@@ -363,6 +370,8 @@ void R_TranslatePlayerSkin (int playernum)
 	}
 	glTexImage2D (GL_TEXTURE_2D, 0, gl_solid_format, scaled_width, scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
+	COM_FreeBuf (pixels);
+
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -379,7 +388,7 @@ R_NewMap
 void R_NewMap (void)
 {
 	int		i;
-	
+
 	for (i=0 ; i<256 ; i++)
 		d_lightstylevalue[i] = 264;		// normal light value
 
@@ -390,7 +399,7 @@ void R_NewMap (void)
 // FIXME: is this one short?
 	for (i=0 ; i<cl.worldmodel->numleafs ; i++)
 		cl.worldmodel->leafs[i].efrags = NULL;
-		 	
+
 	r_viewleaf = NULL;
 	R_ClearParticles ();
 
@@ -399,12 +408,21 @@ void R_NewMap (void)
 	// identify sky texture
 	skytexturenum = -1;
 	mirrortexturenum = -1;
+	skychain = waterchain = NULL;
 	for (i=0 ; i<cl.worldmodel->numtextures ; i++)
 	{
 		if (!cl.worldmodel->textures[i])
 			continue;
 		if (!Q_strncmp(cl.worldmodel->textures[i]->name,"sky",3) )
-			skytexturenum = i;
+		{
+			if (skytexturenum == -1)
+				skytexturenum = i;
+			else
+			{
+				Con_DPrintf ("\x02R_NewMap: ");
+				Con_DPrintf ("multiple sky textures\n");
+			}
+		}
 		if (!Q_strncmp(cl.worldmodel->textures[i]->name,"window02_1",10) )
 			mirrortexturenum = i;
  		cl.worldmodel->textures[i]->texturechain = NULL;
@@ -412,8 +430,10 @@ void R_NewMap (void)
 #ifdef QUAKE2
 	R_LoadSkys ();
 #endif
+	R_Sky_NewMap ();
 }
 
+qboolean r_timerefresh_active;
 
 /*
 ====================
@@ -424,22 +444,24 @@ For program optimization
 */
 void R_TimeRefresh_f (void)
 {
-	int			i;
-	float		start, stop, time;
-	int			startangle;
-	vrect_t		vr;
+	int	i;
+	float	start, stop, time;
+	int	startangle;
+	vrect_t	vr;
 
 	glDrawBuffer  (GL_FRONT);
 	glFinish ();
 
+	r_timerefresh_active = true;
 	start = Sys_FloatTime ();
 	for (i=0 ; i<128 ; i++)
 	{
 		r_refdef.viewangles[1] = i/128.0*360.0;
 		R_RenderView ();
+		glFinish ();
 	}
+	r_timerefresh_active = false;
 
-	glFinish ();
 	stop = Sys_FloatTime ();
 	time = stop-start;
 	Con_Printf ("%f seconds (%f fps)\n", time, 128/time);

@@ -71,6 +71,7 @@ extern cvar_t	r_numsurfs;
 extern cvar_t	r_reportedgeout;
 extern cvar_t	r_maxedges;
 extern cvar_t	r_numedges;
+extern cvar_t	r_novis;
 
 #define XCENTERING	(1.0 / 2.0)
 #define YCENTERING	(1.0 / 2.0)
@@ -131,7 +132,6 @@ extern	vec3_t			r_worldmodelorg;
 
 void R_DrawSprite (void);
 void R_RenderFace (msurface_t *fa, int clipflags);
-void R_RenderPoly (msurface_t *fa, int clipflags);
 void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf);
 void R_TransformPlane (mplane_t *p, float *normal, float *dist);
 void R_TransformFrustum (void);
@@ -209,19 +209,13 @@ typedef struct btofpoly_s {
 	msurface_t	*psurf;
 } btofpoly_t;
 
-#define MAX_BTOFPOLYS	5000	// FIXME: tune this
-
-extern int			numbtofpolys;
-extern btofpoly_t	*pbtofpolys;
-
 void	R_InitTurb (void);
-void	R_ZDrawSubmodelPolys (model_t *clmodel);
 
 //=========================================================
 // Alias models
 //=========================================================
 
-#define MAXALIASVERTS		2000	// TODO: tune this
+#define MAXALIASVERTS		65536 //3984 //2000	//3985 seems to crash assembler(?)
 #define ALIAS_Z_CLIP_PLANE	5
 
 extern int				numverts;
@@ -296,7 +290,8 @@ extern vec3_t	r_emins, r_emaxs;
 extern mnode_t	*r_pefragtopnode;
 extern int		r_clipflags;
 extern int		r_dlightframecount;
-extern qboolean	r_fov_greater_than_90;
+
+qboolean r_timerefresh_active;
 
 void R_StoreEfrags (efrag_t **ppefrag);
 void R_TimeRefresh_f (void);

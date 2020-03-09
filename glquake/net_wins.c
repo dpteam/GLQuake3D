@@ -385,7 +385,8 @@ int WINS_CheckNewConnections (void)
 	if (net_acceptsocket == -1)
 		return -1;
 
-	if (precvfrom (net_acceptsocket, buf, sizeof(buf), MSG_PEEK, NULL, NULL) > 0)
+	// ProQuake fix
+	if (precvfrom (net_acceptsocket, buf, sizeof(buf), MSG_PEEK, NULL, NULL) >= 0)
 	{
 		return net_acceptsocket;
 	}
@@ -402,9 +403,9 @@ int WINS_Read (int socket, byte *buf, int len, struct qsockaddr *addr)
 	ret = precvfrom (socket, buf, len, 0, (struct sockaddr *)addr, &addrlen);
 	if (ret == -1)
 	{
-		int errno = pWSAGetLastError();
+		int qerrno = pWSAGetLastError();
 
-		if (errno == WSAEWOULDBLOCK || errno == WSAECONNREFUSED)
+		if (qerrno == WSAEWOULDBLOCK || qerrno == WSAECONNREFUSED)
 			return 0;
 
 	}
@@ -511,12 +512,13 @@ int WINS_GetNameFromAddr (struct qsockaddr *addr, char *name)
 {
 	struct hostent *hostentry;
 
+/*	ProQuake connect speedup fix (verified for w95 -> XP)
 	hostentry = pgethostbyaddr ((char *)&((struct sockaddr_in *)addr)->sin_addr, sizeof(struct in_addr), AF_INET);
 	if (hostentry)
 	{
 		Q_strncpy (name, (char *)hostentry->h_name, NET_NAMELEN - 1);
 		return 0;
-	}
+	}*/
 
 	Q_strcpy (name, WINS_AddrToString (addr));
 	return 0;

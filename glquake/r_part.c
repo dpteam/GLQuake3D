@@ -21,10 +21,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "r_local.h"
 
-#define MAX_PARTICLES			2048	// default max # of particles at one
+#define MAX_PARTICLES			16384 //2048	// default max # of particles at one
 										//  time
-#define ABSOLUTE_MIN_PARTICLES	512		// no fewer than this no matter what's
+#define ABSOLUTE_MIN_PARTICLES	1024 //512		// no fewer than this no matter what's
 										//  on the command line
+#define ABSOLUTE_MAX_PARTICLES	16384 //10000000
 
 int		ramp1[8] = {0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61};
 int		ramp2[8] = {0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66};
@@ -33,10 +34,11 @@ int		ramp3[8] = {0x6d, 0x6b, 6, 5, 4, 3};
 particle_t	*active_particles, *free_particles;
 
 particle_t	*particles;
-int			r_numparticles;
+int		r_numparticles;
 
-vec3_t			r_pright, r_pup, r_ppn;
+vec3_t		r_pright, r_pup, r_ppn;
 
+cvar_t	r_particles = {"r_particles","1"};
 
 /*
 ===============
@@ -54,6 +56,8 @@ void R_InitParticles (void)
 		r_numparticles = (int)(Q_atoi(com_argv[i+1]));
 		if (r_numparticles < ABSOLUTE_MIN_PARTICLES)
 			r_numparticles = ABSOLUTE_MIN_PARTICLES;
+		else if (r_numparticles > ABSOLUTE_MAX_PARTICLES)
+			r_numparticles = ABSOLUTE_MAX_PARTICLES;
 	}
 	else
 	{
@@ -62,6 +66,33 @@ void R_InitParticles (void)
 
 	particles = (particle_t *)
 			Hunk_AllocName (r_numparticles * sizeof(particle_t), "particles");
+	
+	Cvar_RegisterVariable (&r_particles);
+}
+
+/*
+===============
+NextFreeParticle
+===============
+*/
+static particle_t *NextFreeParticle (void)
+{
+	particle_t *p = free_particles;
+
+	if (p)
+	{
+//		if (p < particles || p >= particles + r_numparticles)
+//			Sys_Error ("NextFreeParticle: free_particles index %d is outside particles array max %d", (p - particles) / sizeof(particle_t), r_numparticles - 1);
+	    
+//		if (active_particles && (active_particles < particles || active_particles >= particles + r_numparticles))
+//			Sys_Error ("NextFreeParticle: active_particles index %d is outside particles array max %d", (active_particles - particles) / sizeof(particle_t), r_numparticles - 1);
+	    
+		free_particles = p->next;
+		p->next = active_particles;
+		active_particles = p;
+	}
+	
+	return p;
 }
 
 #ifdef QUAKE2
@@ -80,12 +111,9 @@ void R_DarkFieldParticles (entity_t *ent)
 		for (j=-16 ; j<16 ; j+=8)
 			for (k=0 ; k<32 ; k+=8)
 			{
-				if (!free_particles)
+				p = NextFreeParticle ();
+				if (!p)
 					return;
-				p = free_particles;
-				free_particles = p->next;
-				p->next = active_particles;
-				active_particles = p;
 		
 				p->die = cl.time + 0.2 + (rand()&7) * 0.02;
 				p->color = 150 + rand()%6;
@@ -114,12 +142,13 @@ R_EntityParticles
 */
 
 #define NUMVERTEXNORMALS	162
-extern	float	r_avertexnormals[NUMVERTEXNORMALS][3];
-vec3_t	avelocities[NUMVERTEXNORMALS];
-float	beamlength = 16;
-vec3_t	avelocity = {23, 7, 3};
-float	partstep = 0.01;
-float	timescale = 0.01;
+
+extern float	r_avertexnormals[NUMVERTEXNORMALS][3];
+vec3_t		avelocities[NUMVERTEXNORMALS];
+float		beamlength = 16;
+vec3_t		avelocity = {23, 7, 3};
+float		partstep = 0.01;
+float		timescale = 0.01;
 
 void R_EntityParticles (entity_t *ent)
 {
@@ -134,11 +163,11 @@ void R_EntityParticles (entity_t *ent)
 	dist = 64;
 	count = 50;
 
-if (!avelocities[0][0])
-{
-for (i=0 ; i<NUMVERTEXNORMALS*3 ; i++)
-avelocities[0][i] = (rand()&255) * 0.01;
-}
+	if (!avelocities[0][0])
+	{
+		for (i=0 ; i<NUMVERTEXNORMALS*3 ; i++)
+			avelocities[0][i] = (rand()&255) * 0.01;
+	}
 
 
 	for (i=0 ; i<NUMVERTEXNORMALS ; i++)
@@ -157,12 +186,9 @@ avelocities[0][i] = (rand()&255) * 0.01;
 		forward[1] = cp*sy;
 		forward[2] = -sp;
 
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 0.01;
 		p->color = 0x6f;
@@ -220,15 +246,12 @@ void R_ReadPointFile_f (void)
 			break;
 		c++;
 		
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 		{
 			Con_Printf ("Not enough free particles\n");
 			break;
 		}
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 		
 		p->die = 99999;
 		p->color = (-c)&15;
@@ -260,10 +283,10 @@ void R_ParseParticleEffect (void)
 	msgcount = MSG_ReadByte ();
 	color = MSG_ReadByte ();
 
-if (msgcount == 255)
-	count = 1024;
-else
-	count = msgcount;
+	if (msgcount == 255)
+		count = 1024;
+	else
+		count = msgcount;
 	
 	R_RunParticleEffect (org, dir, color, count);
 }
@@ -281,12 +304,9 @@ void R_ParticleExplosion (vec3_t org)
 	
 	for (i=0 ; i<1024 ; i++)
 	{
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 5;
 		p->color = ramp1[0];
@@ -326,12 +346,9 @@ void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
 
 	for (i=0; i<512; i++)
 	{
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 0.3;
 		p->color = colorStart + (colorMod % colorLength);
@@ -359,12 +376,9 @@ void R_BlobExplosion (vec3_t org)
 	
 	for (i=0 ; i<1024 ; i++)
 	{
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		p->die = cl.time + 1 + (rand()&8)*0.05;
 
@@ -404,12 +418,9 @@ void R_RunParticleEffect (vec3_t org, vec3_t dir, int color, int count)
 	
 	for (i=0 ; i<count ; i++)
 	{
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 
 		if (count == 1024)
 		{	// rocket explosion
@@ -467,12 +478,9 @@ void R_LavaSplash (vec3_t org)
 		for (j=-16 ; j<16 ; j++)
 			for (k=0 ; k<1 ; k++)
 			{
-				if (!free_particles)
+				p = NextFreeParticle ();
+				if (!p)
 					return;
-				p = free_particles;
-				free_particles = p->next;
-				p->next = active_particles;
-				active_particles = p;
 		
 				p->die = cl.time + 2 + (rand()&31) * 0.02;
 				p->color = 224 + (rand()&7);
@@ -509,12 +517,9 @@ void R_TeleportSplash (vec3_t org)
 		for (j=-16 ; j<16 ; j+=4)
 			for (k=-24 ; k<32 ; k+=4)
 			{
-				if (!free_particles)
+				p = NextFreeParticle ();
+				if (!p)
 					return;
-				p = free_particles;
-				free_particles = p->next;
-				p->next = active_particles;
-				active_particles = p;
 		
 				p->die = cl.time + 0.2 + (rand()&7) * 0.02;
 				p->color = 7 + (rand()&7);
@@ -557,12 +562,9 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 	{
 		len -= dec;
 
-		if (!free_particles)
+		p = NextFreeParticle ();
+		if (!p)
 			return;
-		p = free_particles;
-		free_particles = p->next;
-		p->next = active_particles;
-		active_particles = p;
 		
 		VectorCopy (vec3_origin, p->vel);
 		p->die = cl.time + 2;
@@ -648,21 +650,27 @@ extern	cvar_t	sv_gravity;
 
 void R_DrawParticles (void)
 {
-	particle_t		*p, *kill;
-	float			grav;
-	int				i;
-	float			time2, time3;
-	float			time1;
-	float			dvel;
-	float			frametime;
+	particle_t	*p, *kill;
+	float		grav;
+	int		i, j = 0;
+	float		time2, time3;
+	float		time1;
+	float		dvel;
+	float		frametime;
 	
 #ifdef GLQUAKE
-	vec3_t			up, right;
-	float			scale;
+	vec3_t		up, right;
+	float		scale;
+#endif
 
-    GL_Bind(particletexture);
+	if (!r_particles.value)
+		return;
+
+#ifdef GLQUAKE
+	GL_Bind(particletexture);
 	glEnable (GL_BLEND);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	glDepthMask (GL_FALSE); // fix for particle z-buffer bug
 	glBegin (GL_TRIANGLES);
 
 	VectorScale (vup, 1.5, up);
@@ -708,6 +716,14 @@ void R_DrawParticles (void)
 			}
 			break;
 		}
+
+		// Improve sound when many particles
+		if (++j % 8192 == 0)
+#ifdef GLQUAKE
+			S_ExtraUpdateTime ();
+#else
+			R_SndExtraUpdate ();
+#endif
 
 #ifdef GLQUAKE
 		// hack a scale up to keep particles from disapearing
@@ -791,8 +807,10 @@ void R_DrawParticles (void)
 
 #ifdef GLQUAKE
 	glEnd ();
+	glDepthMask (GL_TRUE); // fix for particle z-buffer bug
 	glDisable (GL_BLEND);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glColor3f(1,1,1);
 #else
 	D_EndParticles ();
 #endif

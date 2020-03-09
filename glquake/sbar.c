@@ -31,7 +31,7 @@ qpic_t		*sb_ibar;
 qpic_t		*sb_sbar;
 qpic_t		*sb_scorebar;
 
-qpic_t      *sb_weapons[7][8];   // 0 is active, 1 is owned, 2-5 are flashes
+qpic_t      *sb_weapons[7][7];   // 0 is active, 1 is owned, 2-5 are flashes
 qpic_t      *sb_ammo[4];
 qpic_t		*sb_sigil[4];
 qpic_t		*sb_armor[3];
@@ -457,14 +457,16 @@ Sbar_SoloScoreboard
 void Sbar_SoloScoreboard (void)
 {
 	char	str[80];
-	int		minutes, seconds, tens, units;
-	int		l;
+	int	minutes, seconds, tens, units;
+	int	l, SecretEnd, TStart;
 
 	sprintf (str,"Monsters:%3i /%3i", cl.stats[STAT_MONSTERS], cl.stats[STAT_TOTALMONSTERS]);
 	Sbar_DrawString (8, 4, str);
 
 	sprintf (str,"Secrets :%3i /%3i", cl.stats[STAT_SECRETS], cl.stats[STAT_TOTALSECRETS]);
 	Sbar_DrawString (8, 12, str);
+
+	SecretEnd = 1 + strlen (str);
 
 // time
 	minutes = cl.time / 60;
@@ -475,8 +477,30 @@ void Sbar_SoloScoreboard (void)
 	Sbar_DrawString (184, 4, str);
 
 // draw level name
-	l = strlen (cl.levelname);
-	Sbar_DrawString (232 - l*4, 12, cl.levelname);
+	strncpy (str, cl.levelname, sizeof(str) - 1);
+	str[sizeof(str) - 1] = '\0';
+	l = strlen (str);
+
+	// X position is 8 pixels wide
+	TStart = 232 / 8 - l / 2;
+
+	if (TStart < SecretEnd + 1)
+	{
+		// Don't cover # secrets info
+		TStart = SecretEnd + 1;
+
+/*		l = (232 / 8 - TStart) * 2;
+
+		// Paranoid
+		if (l < 0)
+			l = 0;
+		else if (l >= sizeof(str))
+			l = sizeof(str) - 1;
+
+		str[l] = '\0';*/
+	}
+
+	Sbar_DrawString (TStart * 8, 12, str);
 }
 
 /*
@@ -569,6 +593,10 @@ void Sbar_DrawInventory (void)
 		{
 			time = cl.item_gettime[i];
 			flashon = (int)((cl.time - time)*10);
+			
+			if (flashon < 0)
+				flashon = 0; // Might happen if host_framerate is e.g. 1
+
 			if (flashon >= 10)
 			{
 				if ( cl.stats[STAT_ACTIVEWEAPON] == (IT_SHOTGUN<<i)  )
@@ -597,6 +625,10 @@ void Sbar_DrawInventory (void)
          {
             time = cl.item_gettime[hipweapons[i]];
             flashon = (int)((cl.time - time)*10);
+			
+	    if (flashon < 0)
+		    flashon = 0; // Might happen if host_framerate is e.g. 1
+
             if (flashon >= 10)
             {
                if ( cl.stats[STAT_ACTIVEWEAPON] == (1<<hipweapons[i])  )
@@ -928,8 +960,13 @@ void Sbar_Draw (void)
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
 
-	if (sb_updates >= vid.numpages)
-		return;
+	if (sb_updates >= vid.numpages && !scr_showedicts.value)
+	{
+#ifdef GLQUAKE
+		if (!gl_clear.value)
+#endif
+			return;
+	}
 
 	scr_copyeverything = 1;
 
@@ -1085,11 +1122,11 @@ Sbar_DeathmatchOverlay
 */
 void Sbar_DeathmatchOverlay (void)
 {
-	qpic_t			*pic;
-	int				i, k, l;
-	int				top, bottom;
-	int				x, y, f;
-	char			num[12];
+	qpic_t		*pic;
+	int		i, k, l;
+	int		top, bottom;
+	int		x, y, f;
+	char		num[12];
 	scoreboard_t	*s;
 
 	scr_copyeverything = 1;
@@ -1108,6 +1145,9 @@ void Sbar_DeathmatchOverlay (void)
 	y = 40;
 	for (i=0 ; i<l ; i++)
 	{
+		if (y > vid.height - sb_lines - 10)
+			break;
+
 		k = fragsort[i];
 		s = &cl.scores[k];
 		if (!s->name[0])
@@ -1155,6 +1195,9 @@ void Sbar_DeathmatchOverlay (void)
 		Draw_String (x+64, y, s->name);
 
 		y += 10;
+
+		if ((i + 1) % 8 == 0)
+			y += 10; // Separate into 8 groups for clarity
 	}
 }
 
@@ -1206,7 +1249,7 @@ void Sbar_MiniDeathmatchOverlay (void)
             i = 0;
 
 	x = 324;
-	for (/* */; i < scoreboardlines && y < vid.height - 8 ; i++)
+	for (/* */; i < scoreboardlines && y < vid.height + 1 - 8 ; i++)
 	{
 		k = fragsort[i];
 		s = &cl.scores[k];
@@ -1269,8 +1312,8 @@ Sbar_IntermissionOverlay
 void Sbar_IntermissionOverlay (void)
 {
 	qpic_t	*pic;
-	int		dig;
-	int		num;
+	int	dig, Digits, Offset;
+	int	num;
 
 	scr_copyeverything = 1;
 	scr_fullupdate = 0;
@@ -1299,9 +1342,12 @@ void Sbar_IntermissionOverlay (void)
 	Draw_TransPic (232,104,sb_slash);
 	Sbar_IntermissionNumber (240, 104, cl.stats[STAT_TOTALSECRETS], 3, 0);
 
-	Sbar_IntermissionNumber (160, 144, cl.stats[STAT_MONSTERS], 3, 0);
-	Draw_TransPic (232,144,sb_slash);
-	Sbar_IntermissionNumber (240, 144, cl.stats[STAT_TOTALMONSTERS], 3, 0);
+	Digits = cl.stats[STAT_TOTALMONSTERS] > 999 ? 4 : 3; // Handle 4-digit monsters ...
+	Offset = (Digits - 3) * 24;
+
+	Sbar_IntermissionNumber (160 - Offset * 2, 144, cl.stats[STAT_MONSTERS], Digits, 0);
+	Draw_TransPic (232 - Offset, 144, sb_slash);
+	Sbar_IntermissionNumber (240 - Offset, 144, cl.stats[STAT_TOTALMONSTERS], Digits, 0);
 
 }
 

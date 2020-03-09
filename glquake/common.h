@@ -38,6 +38,7 @@ typedef struct sizebuf_s
 	byte	*data;
 	int		maxsize;
 	int		cursize;
+	char		*function;
 } sizebuf_t;
 
 void SZ_Alloc (sizebuf_t *buf, int startsize);
@@ -54,6 +55,12 @@ typedef struct link_s
 	struct link_s	*prev, *next;
 } link_t;
 
+qboolean InvalidPtr (long Ptr);
+qboolean IsTimeout (float *PrevTime, float WaitTime);
+void	 *COM_AllocBuf (char *Func, void *Buf, int *PSize, int NewSize, int OldLimit, char *Name);
+void	 COM_FreeBuf (void *Buf);
+int	 COM_vsnprintf (char *function, char *buffer, int buffersize, char *format, va_list argptr);
+int	 COM_snprintf (char *function, char *buffer, int buffersize, char *format, ...);
 
 void ClearLink (link_t *l);
 void RemoveLink (link_t *l);
@@ -180,4 +187,4 @@ void COM_LoadCacheFile (char *path, struct cache_user_s *cu);
 
 extern	struct cvar_s	registered;
 
-extern qboolean		standard_quake, rogue, hipnotic;
+extern qboolean		standard_quake, rogue, hipnotic, nehahra;

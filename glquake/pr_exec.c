@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -31,18 +31,21 @@ typedef struct
 	dfunction_t		*f;
 } prstack_t;
 
-#define	MAX_STACK_DEPTH		32
-prstack_t	pr_stack[MAX_STACK_DEPTH];
-int			pr_depth;
+#define	MAX_STACK_DEPTH		256 //32
+prstack_t	pr_stack[MAX_STACK_DEPTH + 1]; // PR_StackTrace uses the last one
+int		pr_depth;
+static int	pr_peakdepth;
 
 #define	LOCALSTACK_SIZE		2048
-int			localstack[LOCALSTACK_SIZE];
-int			localstack_used;
+int		localstack[LOCALSTACK_SIZE];
+int		localstack_used;
 
 
 qboolean	pr_trace;
 dfunction_t	*pr_xfunction;
-int			pr_xstatement;
+int		pr_xstatement;
+qboolean	pr_ExtendedTrace;
+
 
 
 int		pr_argc;
@@ -52,43 +55,43 @@ char *pr_opnames[] =
 "DONE",
 
 "MUL_F",
-"MUL_V", 
+"MUL_V",
 "MUL_FV",
 "MUL_VF",
- 
+
 "DIV",
 
 "ADD_F",
-"ADD_V", 
-  
+"ADD_V",
+
 "SUB_F",
 "SUB_V",
 
 "EQ_F",
 "EQ_V",
-"EQ_S", 
+"EQ_S",
 "EQ_E",
 "EQ_FNC",
- 
+
 "NE_F",
-"NE_V", 
+"NE_V",
 "NE_S",
-"NE_E", 
+"NE_E",
 "NE_FNC",
- 
+
 "LE",
 "GE",
 "LT",
-"GT", 
+"GT",
 
 "INDIRECT",
 "INDIRECT",
-"INDIRECT", 
-"INDIRECT", 
 "INDIRECT",
-"INDIRECT", 
+"INDIRECT",
+"INDIRECT",
+"INDIRECT",
 
-"ADDRESS", 
+"ADDRESS",
 
 "STORE_F",
 "STORE_V",
@@ -105,16 +108,16 @@ char *pr_opnames[] =
 "STOREP_FNC",
 
 "RETURN",
-  
+
 "NOT_F",
 "NOT_V",
-"NOT_S", 
-"NOT_ENT", 
-"NOT_FNC", 
-  
+"NOT_S",
+"NOT_ENT",
+"NOT_FNC",
+
 "IF",
 "IFNOT",
-  
+
 "CALL0",
 "CALL1",
 "CALL2",
@@ -124,13 +127,13 @@ char *pr_opnames[] =
 "CALL6",
 "CALL7",
 "CALL8",
-  
+
 "STATE",
-  
-"GOTO", 
-  
+
+"GOTO",
+
 "AND",
-"OR", 
+"OR",
 
 "BITAND",
 "BITOR"
@@ -149,37 +152,30 @@ PR_PrintStatement
 */
 void PR_PrintStatement (dstatement_t *s)
 {
-	int		i;
-	
 	if ( (unsigned)s->op < sizeof(pr_opnames)/sizeof(pr_opnames[0]))
-	{
-		Con_Printf ("%s ",  pr_opnames[s->op]);
-		i = strlen(pr_opnames[s->op]);
-		for ( ; i<10 ; i++)
-			Con_Printf (" ");
-	}
-		
+		Con_SafePrintf ("%-10s ", pr_opnames[s->op]);
+
 	if (s->op == OP_IF || s->op == OP_IFNOT)
-		Con_Printf ("%sbranch %i",PR_GlobalString(s->a),s->b);
+		Con_SafePrintf ("%sbranch %i", PR_GlobalString((unsigned short)s->a), s->b);
 	else if (s->op == OP_GOTO)
 	{
-		Con_Printf ("branch %i",s->a);
+		Con_SafePrintf ("branch %i", s->a);
 	}
 	else if ( (unsigned)(s->op - OP_STORE_F) < 6)
 	{
-		Con_Printf ("%s",PR_GlobalString(s->a));
-		Con_Printf ("%s", PR_GlobalStringNoContents(s->b));
+		Con_SafePrintf ("%s", PR_GlobalString((unsigned short)s->a));
+		Con_SafePrintf ("%s", PR_GlobalStringNoContents((unsigned short)s->b));
 	}
 	else
 	{
 		if (s->a)
-			Con_Printf ("%s",PR_GlobalString(s->a));
+			Con_SafePrintf ("%s", PR_GlobalString((unsigned short)s->a));
 		if (s->b)
-			Con_Printf ("%s",PR_GlobalString(s->b));
+			Con_SafePrintf ("%s", PR_GlobalString((unsigned short)s->b));
 		if (s->c)
-			Con_Printf ("%s", PR_GlobalStringNoContents(s->c));
+			Con_SafePrintf ("%s", PR_GlobalStringNoContents((unsigned short)s->c));
 	}
-	Con_Printf ("\n");
+	Con_SafePrintf ("\n");
 }
 
 /*
@@ -190,28 +186,31 @@ PR_StackTrace
 void PR_StackTrace (void)
 {
 	dfunction_t	*f;
-	int			i;
-	
-	if (pr_depth == 0)
+	int		i;
+
+	if (pr_depth <= 0)
 	{
-		Con_Printf ("<NO STACK>\n");
+		Con_SafePrintf ("<NO STACK>\n");
 		return;
 	}
-	
+
+	if (pr_depth > MAX_STACK_DEPTH)
+		pr_depth = MAX_STACK_DEPTH;
+
+	pr_stack[pr_depth].s = pr_xstatement;
 	pr_stack[pr_depth].f = pr_xfunction;
-	for (i=pr_depth ; i>=0 ; i--)
+	for (i=pr_depth ; i>0 ; i--)
 	{
 		f = pr_stack[i].f;
-		
+
 		if (!f)
 		{
-			Con_Printf ("<NO FUNCTION>\n");
+			Con_SafePrintf ("<NO FUNCTION>\n");
 		}
 		else
-			Con_Printf ("%12s : %s\n", pr_strings + f->s_file, pr_strings + f->s_name);		
+			Con_SafePrintf ("%12s : %s : statement %i\n", pr_String("PR_StackTrace1", f->s_file), pr_String("PR_StackTrace2", f->s_name), pr_stack[i].s - f->first_statement);
 	}
 }
-
 
 /*
 ============
@@ -222,11 +221,17 @@ PR_Profile_f
 void PR_Profile_f (void)
 {
 	dfunction_t	*f, *best;
-	int			max;
-	int			num;
-	int			i;
+	int		max;
+	int		num;
+	int		i;
+
+	if (!progs)
+	{
+		Con_SafePrintf ("No progs loaded, can't profile\n");
+		return;
+	}
 	
-	num = 0;	
+	num = 0;
 	do
 	{
 		max = 0;
@@ -243,13 +248,36 @@ void PR_Profile_f (void)
 		if (best)
 		{
 			if (num < 10)
-				Con_Printf ("%7i %s\n", best->profile, pr_strings+best->s_name);
+				Con_SafePrintf ("%9i %s\n", best->profile, pr_String("PR_Profile_f", best->s_name));
 			num++;
 			best->profile = 0;
 		}
 	} while (best);
 }
 
+/*
+============
+PR_PrintState
+
+Prints recent statements and a trace
+============
+*/
+void PR_PrintState (void)
+{
+	int i;
+	
+	if (pr_xfunction)
+	{
+		for (i = (pr_ExtendedTrace || developer.value > 2) ? -7 : 0; i <= 0; i++)
+		{
+			if (pr_xstatement + i >= pr_xfunction->first_statement)
+				PR_PrintStatement (pr_statements + pr_xstatement + i);
+		}
+	}
+	
+	pr_ExtendedTrace = false;
+	PR_StackTrace ();
+}
 
 /*
 ============
@@ -260,20 +288,82 @@ Aborts the currently executing function
 */
 void PR_RunError (char *error, ...)
 {
-	va_list		argptr;
-	char		string[1024];
+	va_list	argptr;
+	char	string[MAX_PRINTMSG]; //1024
 
 	va_start (argptr,error);
-	vsprintf (string,error,argptr);
+	COM_vsnprintf ("PR_RunError", string, sizeof(string) - 1, error, argptr);
 	va_end (argptr);
 
-	PR_PrintStatement (pr_statements + pr_xstatement);
-	PR_StackTrace ();
-	Con_Printf ("%s\n", string);
-	
-	pr_depth = 0;		// dump the stack so host_error can shutdown functions
+	PR_PrintState ();
+	Con_SafePrintf ("%s\n", string);
+
+	// dump the stack so host_error can shutdown functions
+	PR_RunClear ();
 
 	Host_Error ("Program error");
+}
+
+/*
+============
+PR_RunError2
+
+Simpler trace, exiting with Sys_Error
+============
+*/
+void PR_RunError2 (char *error, ...)
+{
+	va_list		 argptr;
+	char		 string[MAX_PRINTMSG];
+	static qboolean	 inerror = false;
+
+	va_start (argptr,error);
+	COM_vsnprintf ("PR_RunError2", string, sizeof(string) - 1, error, argptr);
+	va_end (argptr);
+
+	if (!inerror && pr_depth > 0)
+	{
+		inerror = true; // Prevent recursion
+		PR_StackTrace ();
+	}
+
+	inerror = false;
+
+	PR_RunClear ();
+
+	Sys_Error (string);
+}
+
+/*
+============
+PR_RunError3
+
+Only trace, does not exit
+============
+*/
+void PR_RunError3 (void)
+{
+	static qboolean	inerror = false;
+
+	if (!inerror && pr_depth > 0)
+	{
+		inerror = true; // Prevent recursion
+		PR_PrintState ();
+	}
+
+	inerror = false;
+}
+
+/*
+============
+PR_RunClear
+============
+*/
+void PR_RunClear (void)
+{
+	// Clear stack variables
+	pr_depth = localstack_used = pr_xstatement = 0;
+	pr_xfunction = NULL;
 }
 
 /*
@@ -296,18 +386,21 @@ int PR_EnterFunction (dfunction_t *f)
 	int		i, j, c, o;
 
 	pr_stack[pr_depth].s = pr_xstatement;
-	pr_stack[pr_depth].f = pr_xfunction;	
+	pr_stack[pr_depth].f = pr_xfunction;
 	pr_depth++;
 	if (pr_depth >= MAX_STACK_DEPTH)
-		PR_RunError ("stack overflow");
+		PR_RunError ("PR_EnterFunction: stack overflow (%d, max = %d)", pr_depth, MAX_STACK_DEPTH - 1);
+
+	if (pr_depth > pr_peakdepth)
+		pr_peakdepth = pr_depth; // Remember peak depth
 
 // save off any locals that the new function steps on
 	c = f->locals;
 	if (localstack_used + c > LOCALSTACK_SIZE)
-		PR_RunError ("PR_ExecuteProgram: locals stack overflow\n");
+		PR_RunError ("PR_EnterFunction: locals stack overflow (%d, max = %d)", localstack_used + c, LOCALSTACK_SIZE);
 
 	for (i=0 ; i < c ; i++)
-		localstack[localstack_used+i] = ((int *)pr_globals)[f->parm_start + i];
+		localstack[localstack_used+i] = ((int *)pr_globals)[pr_ChkGlobalsF("PR_EnterFunction1", f->parm_start + i)];
 	localstack_used += c;
 
 // copy parameters
@@ -316,7 +409,7 @@ int PR_EnterFunction (dfunction_t *f)
 	{
 		for (j=0 ; j<f->parm_size[i] ; j++)
 		{
-			((int *)pr_globals)[o] = ((int *)pr_globals)[OFS_PARM0+i*3+j];
+			((int *)pr_globals)[pr_ChkGlobalsF("PR_EnterFunction2", o)] = ((int *)pr_globals)[pr_ChkGlobalsF("PR_EnterFunction3", OFS_PARM0 + i * 3 + j)];
 			o++;
 		}
 	}
@@ -335,16 +428,16 @@ int PR_LeaveFunction (void)
 	int		i, c;
 
 	if (pr_depth <= 0)
-		Sys_Error ("prog stack underflow");
+		PR_RunError ("PR_LeaveFunction: prog stack underflow (%d)", pr_depth);
 
 // restore locals from the stack
 	c = pr_xfunction->locals;
 	localstack_used -= c;
 	if (localstack_used < 0)
-		PR_RunError ("PR_ExecuteProgram: locals stack underflow\n");
+		PR_RunError ("PR_LeaveFunction: locals stack underflow (%d)", localstack_used);
 
 	for (i=0 ; i < c ; i++)
-		((int *)pr_globals)[pr_xfunction->parm_start + i] = localstack[localstack_used+i];
+		((int *)pr_globals)[pr_ChkGlobalsF("PR_LeaveFunction", pr_xfunction->parm_start + i)] = localstack[localstack_used+i];
 
 // up stack
 	pr_depth--;
@@ -352,59 +445,79 @@ int PR_LeaveFunction (void)
 	return pr_stack[pr_depth].s;
 }
 
+#ifndef NOISE
+#define RUNAWAY	     5000000
+#else
+#define RUNAWAY	     100000
+#endif
+
+#define RUNAWAY_STEP (RUNAWAY / 5)
 
 /*
 ====================
 PR_ExecuteProgram
 ====================
 */
-void PR_ExecuteProgram (func_t fnum)
+void PR_ExecuteProgram (func_t fnum, char *fname)
 {
-	eval_t	*a, *b, *c;
-	int			s;
+	eval_t		*a, *b, *c;
+	int		s;
 	dstatement_t	*st;
 	dfunction_t	*f, *newf;
 	int		runaway;
 	int		i;
-	edict_t	*ed;
+	edict_t		*ed;
 	int		exitdepth;
-	eval_t	*ptr;
+	eval_t		*ptr;
 
-	if (!fnum || fnum >= progs->numfunctions)
+	if (!fnum || fnum < 0 || fnum >= progs->numfunctions)
 	{
 		if (pr_global_struct->self)
-			ED_Print (PROG_TO_EDICT(pr_global_struct->self));
-		Host_Error ("PR_ExecuteProgram: NULL function");
+			ED_Print (PROG_TO_EDICT("PR_ExecuteProgram1", pr_global_struct->self));
+
+		if (!fnum)
+			Host_Error ("PR_ExecuteProgram1: NULL '%s' function", fname);
+		else
+			Host_Error ("PR_ExecuteProgram1: invalid '%s' function (%d, max = %d)", fname, fnum, progs->numfunctions);
 	}
-	
+
 	f = &pr_functions[fnum];
 
-	runaway = 100000;
+	runaway = RUNAWAY; //100000
 	pr_trace = false;
 
 // make a stack frame
 	exitdepth = pr_depth;
+	pr_peakdepth = 0;
 
 	s = PR_EnterFunction (f);
-	
+
 while (1)
 {
 	s++;	// next statement
+	pr_xstatement = s;
+	pr_xfunction->profile++;
 
 	st = &pr_statements[s];
-	a = (eval_t *)&pr_globals[st->a];
-	b = (eval_t *)&pr_globals[st->b];
-	c = (eval_t *)&pr_globals[st->c];
-	
+	a = (eval_t *)&pr_globals[(unsigned short)st->a];
+	b = (eval_t *)&pr_globals[(unsigned short)st->b];
+	c = (eval_t *)&pr_globals[(unsigned short)st->c];
+
 	if (!--runaway)
-		PR_RunError ("runaway loop error");
-		
-	pr_xfunction->profile++;
-	pr_xstatement = s;
-	
+		PR_RunError ("runaway loop error %d", RUNAWAY);
+
+	if (runaway < RUNAWAY - RUNAWAY_STEP + 1 && runaway % RUNAWAY_STEP == 0)
+	{
+		Con_Printf ("PR_ExecuteProgram: runaway loop %d\n", runaway / RUNAWAY_STEP);
+		SCR_UpdateScreen (); // Force screen update
+		S_ClearBuffer ();    // Avoid looping sounds
+	}
+
+#ifndef NOISE
 	if (pr_trace)
 		PR_PrintStatement (st);
-		
+#endif
+
 	switch (st->op)
 	{
 	case OP_ADD_F:
@@ -415,7 +528,7 @@ while (1)
 		c->vector[1] = a->vector[1] + b->vector[1];
 		c->vector[2] = a->vector[2] + b->vector[2];
 		break;
-		
+
 	case OP_SUB_F:
 		c->_float = a->_float - b->_float;
 		break;
@@ -447,16 +560,16 @@ while (1)
 	case OP_DIV_F:
 		c->_float = a->_float / b->_float;
 		break;
-	
+
 	case OP_BITAND:
 		c->_float = (int)a->_float & (int)b->_float;
 		break;
-	
+
 	case OP_BITOR:
 		c->_float = (int)a->_float | (int)b->_float;
 		break;
-	
-		
+
+
 	case OP_GE:
 		c->_float = a->_float >= b->_float;
 		break;
@@ -475,7 +588,7 @@ while (1)
 	case OP_OR:
 		c->_float = a->_float || b->_float;
 		break;
-		
+
 	case OP_NOT_F:
 		c->_float = !a->_float;
 		break;
@@ -483,13 +596,13 @@ while (1)
 		c->_float = !a->vector[0] && !a->vector[1] && !a->vector[2];
 		break;
 	case OP_NOT_S:
-		c->_float = !a->string || !pr_strings[a->string];
+		c->_float = !a->string || !(*pr_String ("PR_ExecuteProgram1", a->string));
 		break;
 	case OP_NOT_FNC:
 		c->_float = !a->function;
 		break;
 	case OP_NOT_ENT:
-		c->_float = (PROG_TO_EDICT(a->edict) == sv.edicts);
+		c->_float = (PROG_TO_EDICT("PR_ExecuteProgram2", a->edict) == sv.edicts);
 		break;
 
 	case OP_EQ_F:
@@ -501,7 +614,7 @@ while (1)
 					(a->vector[2] == b->vector[2]);
 		break;
 	case OP_EQ_S:
-		c->_float = !strcmp(pr_strings+a->string,pr_strings+b->string);
+		c->_float = !strcmp(pr_String("PR_ExecuteProgram2", a->string), pr_String("PR_ExecuteProgram3", b->string));
 		break;
 	case OP_EQ_E:
 		c->_float = a->_int == b->_int;
@@ -520,7 +633,7 @@ while (1)
 					(a->vector[2] != b->vector[2]);
 		break;
 	case OP_NE_S:
-		c->_float = strcmp(pr_strings+a->string,pr_strings+b->string);
+		c->_float = strcmp (pr_String("PR_ExecuteProgram4", a->string), pr_String("PR_ExecuteProgram5", b->string));
 		break;
 	case OP_NE_E:
 		c->_float = a->_int != b->_int;
@@ -542,72 +655,76 @@ while (1)
 		b->vector[1] = a->vector[1];
 		b->vector[2] = a->vector[2];
 		break;
-		
+
 	case OP_STOREP_F:
 	case OP_STOREP_ENT:
 	case OP_STOREP_FLD:		// integers
 	case OP_STOREP_S:
 	case OP_STOREP_FNC:		// pointers
-		ptr = (eval_t *)((byte *)sv.edicts + b->_int);
+		ptr = (eval_t *)((byte *)sv.edicts + pr_ChkEdict ("PR_ExecuteProgram3", b->_int, sizeof(int)));
 		ptr->_int = a->_int;
 		break;
 	case OP_STOREP_V:
-		ptr = (eval_t *)((byte *)sv.edicts + b->_int);
+		ptr = (eval_t *)((byte *)sv.edicts + pr_ChkEdict ("PR_ExecuteProgram4", b->_int, sizeof(float) * 3));
 		ptr->vector[0] = a->vector[0];
 		ptr->vector[1] = a->vector[1];
 		ptr->vector[2] = a->vector[2];
 		break;
-		
+
 	case OP_ADDRESS:
-		ed = PROG_TO_EDICT(a->edict);
+		ed = PROG_TO_EDICT("PR_ExecuteProgram5", a->edict);
 #ifdef PARANOID
 		NUM_FOR_EDICT(ed);		// make sure it's in range
 #endif
 		if (ed == (edict_t *)sv.edicts && sv.state == ss_active)
-			PR_RunError ("assignment to world entity");
-		c->_int = (byte *)((int *)&ed->v + b->_int) - (byte *)sv.edicts;
+		{
+			pr_ExtendedTrace = true;
+			PR_RunError ("PR_ExecuteProgram: assignment to world entity");
+		}
+
+		c->_int = (byte *)((int *)&ed->v + pr_ChkEField ("PR_ExecuteProgram1", b->_int)) - (byte *)sv.edicts;
 		break;
-		
+
 	case OP_LOAD_F:
 	case OP_LOAD_FLD:
 	case OP_LOAD_ENT:
 	case OP_LOAD_S:
 	case OP_LOAD_FNC:
-		ed = PROG_TO_EDICT(a->edict);
+		ed = PROG_TO_EDICT("PR_ExecuteProgram6", a->edict);
 #ifdef PARANOID
 		NUM_FOR_EDICT(ed);		// make sure it's in range
 #endif
-		a = (eval_t *)((int *)&ed->v + b->_int);
+		a = (eval_t *)((int *)&ed->v + pr_ChkEField ("PR_ExecuteProgram2", b->_int));
 		c->_int = a->_int;
 		break;
 
 	case OP_LOAD_V:
-		ed = PROG_TO_EDICT(a->edict);
+		ed = PROG_TO_EDICT("PR_ExecuteProgram7", a->edict);
 #ifdef PARANOID
 		NUM_FOR_EDICT(ed);		// make sure it's in range
 #endif
-		a = (eval_t *)((int *)&ed->v + b->_int);
+		a = (eval_t *)((int *)&ed->v + pr_ChkEField ("PR_ExecuteProgram3", b->_int));
 		c->vector[0] = a->vector[0];
 		c->vector[1] = a->vector[1];
 		c->vector[2] = a->vector[2];
 		break;
-		
+
 //==================
 
 	case OP_IFNOT:
 		if (!a->_int)
 			s += st->b - 1;	// offset the s++
 		break;
-		
+
 	case OP_IF:
 		if (a->_int)
 			s += st->b - 1;	// offset the s++
 		break;
-		
+
 	case OP_GOTO:
 		s += st->a - 1;	// offset the s++
 		break;
-		
+
 	case OP_CALL0:
 	case OP_CALL1:
 	case OP_CALL2:
@@ -619,15 +736,26 @@ while (1)
 	case OP_CALL8:
 		pr_argc = st->op - OP_CALL0;
 		if (!a->function)
-			PR_RunError ("NULL function");
+		{
+			if ((st - 1)->op == OP_LOAD_FNC) // OK?
+				ED_Print (ed); // Print owner edict, if any
+			else if (pr_global_struct->self)
+				ED_Print (PROG_TO_EDICT("PR_ExecuteProgram9", pr_global_struct->self));
 
-		newf = &pr_functions[a->function];
+			pr_ExtendedTrace = true;
+			PR_RunError ("PR_ExecuteProgram2: NULL function");
+		}
+
+		newf = &pr_functions[pr_ChkFunction("PR_ExecuteProgram", a->function)];
 
 		if (newf->first_statement < 0)
 		{	// negative statements are built in functions
 			i = -newf->first_statement;
 			if (i >= pr_numbuiltins)
-				PR_RunError ("Bad builtin call number");
+			{
+				pr_ExtendedTrace = true;
+				PR_RunError ("PR_ExecuteProgram: bad builtin call number (%d, max = %d)", i, pr_numbuiltins);
+			}
 			pr_builtins[i] ();
 			break;
 		}
@@ -637,17 +765,26 @@ while (1)
 
 	case OP_DONE:
 	case OP_RETURN:
-		pr_globals[OFS_RETURN] = pr_globals[st->a];
-		pr_globals[OFS_RETURN+1] = pr_globals[st->a+1];
-		pr_globals[OFS_RETURN+2] = pr_globals[st->a+2];
-	
+		pr_globals[OFS_RETURN] = pr_globals[(unsigned short)st->a];
+		pr_globals[OFS_RETURN+1] = pr_globals[(unsigned short)st->a+1];
+		pr_globals[OFS_RETURN+2] = pr_globals[(unsigned short)st->a+2];
+
 		s = PR_LeaveFunction ();
 		if (pr_depth == exitdepth)
+		{
+			// Check old limit
+			if (pr_peakdepth >= 32)
+			{
+				Con_SafePrintf ("\002PR_ExecuteProgram: ");
+				Con_SafePrintf ("excessive stack (%d, normal max = %d)\n", pr_peakdepth, 32 - 1);
+			}
+
 			return;		// all done
+		}
 		break;
-		
+
 	case OP_STATE:
-		ed = PROG_TO_EDICT(pr_global_struct->self);
+		ed = PROG_TO_EDICT("PR_ExecuteProgram8", pr_global_struct->self);
 #ifdef FPS_20
 		ed->v.nextthink = pr_global_struct->time + 0.05;
 #else
@@ -659,9 +796,10 @@ while (1)
 		}
 		ed->v.think = b->function;
 		break;
-		
+
 	default:
-		PR_RunError ("Bad opcode %i", st->op);
+		pr_ExtendedTrace = true;
+		PR_RunError ("PR_ExecuteProgram: bad opcode %i", st->op);
 	}
 }
 

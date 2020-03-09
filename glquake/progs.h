@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 See the GNU General Public License for more details.
 
@@ -29,89 +29,101 @@ typedef union eval_s
 	func_t			function;
 	int				_int;
 	int				edict;
-} eval_t;	
+} eval_t;
 
 #define	MAX_ENT_LEAFS	16
 typedef struct edict_s
 {
-	qboolean	free;
 	link_t		area;				// linked to a division node or leaf
-	
-	int			num_leafs;
+
+	int		num_leafs;
 	short		leafnums[MAX_ENT_LEAFS];
 
 	entity_state_t	baseline;
-	
-	float		freetime;			// sv.time when the object was freed
+
 	entvars_t	v;					// C exported fields from progs
 // other fields from progs come immediately after
 } edict_t;
+
 #define	EDICT_FROM_AREA(l) STRUCT_FROM_LINK(l,edict_t,area)
 
 //============================================================================
 
-extern	dprograms_t		*progs;
-extern	dfunction_t		*pr_functions;
-extern	char			*pr_strings;
-extern	ddef_t			*pr_globaldefs;
-extern	ddef_t			*pr_fielddefs;
+extern	dprograms_t	*progs;
+extern	dfunction_t	*pr_functions;
+extern	char		*pr_strings;
+extern	ddef_t		*pr_globaldefs;
+extern	ddef_t		*pr_fielddefs;
 extern	dstatement_t	*pr_statements;
 extern	globalvars_t	*pr_global_struct;
-extern	float			*pr_globals;			// same as pr_global_struct
+extern	float		*pr_globals;			// same as pr_global_struct
 
-extern	int				pr_edict_size;	// in bytes
+extern	int		pr_edict_size;	// in bytes
+extern	cvar_t		edict_reuse;
+extern	qboolean	pr_free[MAX_EDICTS];
 
 //============================================================================
 
 void PR_Init (void);
 
-void PR_ExecuteProgram (func_t fnum);
+void PR_ExecuteProgram (func_t fnum, char *fname);
+void Neh_GameStart (void);
 void PR_LoadProgs (void);
 
 void PR_Profile_f (void);
 
+char	*ED_DbgEdict (entvars_t *v);
+void	ED_ChkEdict (qboolean LoadChk, qboolean DisableChk);
 edict_t *ED_Alloc (void);
-void ED_Free (edict_t *ed);
+void	ED_Free (edict_t *ed);
 
 char	*ED_NewString (char *string);
 // returns a copy of the string allocated from the server's string heap
 
 void ED_Print (edict_t *ed);
 void ED_Write (FILE *f, edict_t *ed);
-char *ED_ParseEdict (char *data, edict_t *ent);
+char *ED_ParseEdict (char *data, edict_t *ent, int line);
 
 void ED_WriteGlobals (FILE *f);
-void ED_ParseGlobals (char *data);
+void ED_ParseGlobals (char *data, int line);
 
 void ED_LoadFromFile (char *data);
 
 //define EDICT_NUM(n) ((edict_t *)(sv.edicts+ (n)*pr_edict_size))
 //define NUM_FOR_EDICT(e) (((byte *)(e) - sv.edicts)/pr_edict_size)
 
-edict_t *EDICT_NUM(int n);
-int NUM_FOR_EDICT(edict_t *e);
+edict_t *EDICT_NUM(char *Function, int n);
+#define EDICT_NUM2(n) (edict_t *)((byte *)sv.edicts + (n) * pr_edict_size) // Fast version
+int NUM_FOR_EDICT(char *Function, edict_t *e);
+#define NUM_FOR_EDICT2(e) ((int)((byte *)e - (byte *)sv.edicts) / pr_edict_size) // Fast version
 
 #define	NEXT_EDICT(e) ((edict_t *)( (byte *)e + pr_edict_size))
 
 #define	EDICT_TO_PROG(e) ((byte *)e - (byte *)sv.edicts)
-#define PROG_TO_EDICT(e) ((edict_t *)((byte *)sv.edicts + e))
+#define PROG_TO_EDICT(f,e) ((edict_t *)((byte *)sv.edicts + pr_ChkEdict(f,e,0)))
+#define PROG_TO_EDICT2(f,e) ((edict_t *)((byte *)sv.edicts + e)) // Fast version
 
 //============================================================================
 
-#define	G_FLOAT(o) (pr_globals[o])
-#define	G_INT(o) (*(int *)&pr_globals[o])
-#define	G_EDICT(o) ((edict_t *)((byte *)sv.edicts+ *(int *)&pr_globals[o]))
-#define G_EDICTNUM(o) NUM_FOR_EDICT(G_EDICT(o))
-#define	G_VECTOR(o) (&pr_globals[o])
-#define	G_STRING(o) (pr_strings + *(string_t *)&pr_globals[o])
-#define	G_FUNCTION(o) (*(func_t *)&pr_globals[o])
+int	pr_ChkEdict (char *Function, int e, unsigned Size);
+int	pr_ChkEField (char *Function, int o);
+int     pr_ChkFunction (char *Function, int f);
+int     pr_ChkGlobals (int o);
+int	pr_ChkGlobalsF (char *Function, int o);
+char    *pr_GetString (int o);
+char    *pr_GetEString (edict_t *e, int o);
+char	*pr_String (char *Function, int o);
+void	pr_PrMember (string_t strnum);
+edict_t *pr_GetEdict (char *Function, int o);
 
-#define	E_FLOAT(e,o) (((float*)&e->v)[o])
-#define	E_INT(e,o) (*(int *)&((float*)&e->v)[o])
-#define	E_VECTOR(e,o) (&((float*)&e->v)[o])
-#define	E_STRING(e,o) (pr_strings + *(string_t *)&((float*)&e->v)[o])
+#define	G_FLOAT(o) (pr_globals[pr_ChkGlobals(o)])
+#define	G_INT(o) (*(int *)&pr_globals[pr_ChkGlobals(o)])
+#define	G_EDICT(f,o) (pr_GetEdict(f, o))
+#define G_EDICTNUM(f,o) NUM_FOR_EDICT(f,G_EDICT(f,o))
+#define	G_VECTOR(o) (&pr_globals[pr_ChkGlobals(o)])
+#define	G_STRING(o) (pr_GetString(o))
 
-extern	int		type_size[8];
+#define	E_STRING(e,o) (pr_GetEString(e,o))
 
 typedef void (*builtin_t) (void);
 extern	builtin_t *pr_builtins;
@@ -121,11 +133,15 @@ extern int		pr_argc;
 
 extern	qboolean	pr_trace;
 extern	dfunction_t	*pr_xfunction;
-extern	int			pr_xstatement;
+extern	int		pr_xstatement;
+extern	qboolean	pr_ExtendedTrace;
 
-extern	unsigned short		pr_crc;
+extern	unsigned short	pr_crc;
 
 void PR_RunError (char *error, ...);
+void PR_RunError2 (char *error, ...);
+void PR_RunError3 (void);
+void PR_RunClear (void);
 
 void ED_PrintEdicts (void);
 void ED_PrintNum (int ent);

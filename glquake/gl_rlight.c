@@ -44,10 +44,14 @@ void R_AnimateLight (void)
 			d_lightstylevalue[j] = 256;
 			continue;
 		}
-		k = i % cl_lightstyle[j].length;
-		k = cl_lightstyle[j].map[k] - 'a';
-		k = k*22;
-		d_lightstylevalue[j] = k;
+
+		if (!r_flatlightstyles.value)
+		{
+			k = i % cl_lightstyle[j].length;
+			k = cl_lightstyle[j].map[k] - 'a';
+			k = k*22;
+			d_lightstylevalue[j] = k;
+		}
 	}	
 }
 
@@ -158,9 +162,10 @@ R_MarkLights
 void R_MarkLights (dlight_t *light, int bit, mnode_t *node)
 {
 	mplane_t	*splitplane;
-	float		dist;
+	float		dist, l, maxdist;
 	msurface_t	*surf;
-	int			i;
+	vec3_t		impact;
+	int		i, j, s, t;
 	
 	if (node->contents < 0)
 		return;
@@ -179,16 +184,31 @@ void R_MarkLights (dlight_t *light, int bit, mnode_t *node)
 		return;
 	}
 		
+	maxdist = light->radius*light->radius;
 // mark the polygons
 	surf = cl.worldmodel->surfaces + node->firstsurface;
 	for (i=0 ; i<node->numsurfaces ; i++, surf++)
 	{
-		if (surf->dlightframe != r_dlightframecount)
+		for (j=0 ; j<3 ; j++)
+			impact[j] = light->origin[j] - surf->plane->normal[j]*dist;
+		// clamp center of light to corner and check brightness
+		l = DotProduct (impact, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3] - surf->texturemins[0];
+		s = l+0.5;if (s < 0) s = 0;else if (s > surf->extents[0]) s = surf->extents[0];
+		s = l - s;
+		l = DotProduct (impact, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3] - surf->texturemins[1];
+		t = l+0.5;if (t < 0) t = 0;else if (t > surf->extents[1]) t = surf->extents[1];
+		t = l - t;
+		// compare to minimum light
+		if ((s*s+t*t+dist*dist) < maxdist)
 		{
-			surf->dlightbits = 0;
-			surf->dlightframe = r_dlightframecount;
+			if (surf->dlightframe != r_dlightframecount) // not dynamic until now
+			{
+				surf->dlightbits = bit;
+				surf->dlightframe = r_dlightframecount;
+			}
+			else // already dynamic
+				surf->dlightbits |= bit;
 		}
-		surf->dlightbits |= bit;
 	}
 
 	R_MarkLights (light, bit, node->children[0]);
@@ -230,23 +250,22 @@ LIGHT SAMPLING
 =============================================================================
 */
 
-mplane_t		*lightplane;
-vec3_t			lightspot;
+vec3_t lightspot;
 
 int RecursiveLightPoint (mnode_t *node, vec3_t start, vec3_t end)
 {
-	int			r;
+	int		r;
 	float		front, back, frac;
-	int			side;
+	int		side;
 	mplane_t	*plane;
 	vec3_t		mid;
 	msurface_t	*surf;
-	int			s, t, ds, dt;
-	int			i;
+	int		s, t, ds, dt;
+	int		i;
 	mtexinfo_t	*tex;
 	byte		*lightmap;
 	unsigned	scale;
-	int			maps;
+	int		maps;
 
 	if (node->contents < 0)
 		return -1;		// didn't hit anything
@@ -258,7 +277,7 @@ int RecursiveLightPoint (mnode_t *node, vec3_t start, vec3_t end)
 	front = DotProduct (start, plane->normal) - plane->dist;
 	back = DotProduct (end, plane->normal) - plane->dist;
 	side = front < 0;
-	
+
 	if ( (back < 0) == side)
 		return RecursiveLightPoint (node->children[side], start, end);
 	
@@ -277,7 +296,6 @@ int RecursiveLightPoint (mnode_t *node, vec3_t start, vec3_t end)
 		
 // check for impact on this node
 	VectorCopy (mid, lightspot);
-	lightplane = plane;
 
 	surf = cl.worldmodel->surfaces + node->firstsurface;
 	for (i=0 ; i<node->numsurfaces ; i++, surf++)
@@ -334,10 +352,10 @@ int RecursiveLightPoint (mnode_t *node, vec3_t start, vec3_t end)
 
 int R_LightPoint (vec3_t p)
 {
-	vec3_t		end;
-	int			r;
+	vec3_t	end;
+	int	r;
 	
-	if (!cl.worldmodel->lightdata)
+	if (r_fullbright.value || !cl.worldmodel->lightdata)
 		return 255;
 	
 	end[0] = p[0];
