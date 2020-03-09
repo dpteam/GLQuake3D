@@ -25,12 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "winquake.h"
 #include "dosisms.h"
 
-#ifdef XP_TOOLCHAIN
-#define INITGUID
-#include <Guiddef.h>
-#include "dxguid.h"
-#endif
-
 #define DINPUT_BUFFERSIZE           16
 #define iDirectInputCreate(a,b,c,d)	pDirectInputCreate(a,b,c,d)
 
@@ -886,8 +880,6 @@ PDWORD RawValuePointer (int axis)
 	case JOY_AXIS_V:
 		return &ji.dwVpos;
 	}
-
-	return NULL; // Shut up compiler
 }
 
 

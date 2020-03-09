@@ -48,7 +48,6 @@ cvar_t	cl_bobup = {"cl_bobup","0.5", false};
 cvar_t	v_kicktime = {"v_kicktime", "0.5", false};
 cvar_t	v_kickroll = {"v_kickroll", "0.6", false};
 cvar_t	v_kickpitch = {"v_kickpitch", "0.6", false};
-cvar_t	v_gunkick = {"v_gunkick", "1"};
 
 cvar_t	v_iyaw_cycle = {"v_iyaw_cycle", "2", false};
 cvar_t	v_iroll_cycle = {"v_iroll_cycle", "0.5", false};
@@ -64,10 +63,6 @@ cvar_t	cl_crossx = {"cl_crossx", "0", false};
 cvar_t	cl_crossy = {"cl_crossy", "0", false};
 
 cvar_t	gl_cshiftpercent = {"gl_cshiftpercent", "100", false};
-
-#ifndef GLQUAKE
-cvar_t	gl_polyblend = {"gl_polyblend", "1"}; // Keep same name as GLQuake
-#endif
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 
@@ -98,7 +93,7 @@ float V_CalcRoll (vec3_t angles, vec3_t velocity)
 //	if (cl.inwater)
 //		value *= 6;
 
-	if (side < cl_rollspeed.value && cl_rollspeed.value)
+	if (side < cl_rollspeed.value)
 		side = side * value / cl_rollspeed.value;
 	else
 		side = value;
@@ -119,14 +114,11 @@ float V_CalcBob (void)
 	float	bob;
 	float	cycle;
 	
-	if (!cl_bobcycle.value)
-		return 0;
-
 	cycle = cl.time - (int)(cl.time/cl_bobcycle.value)*cl_bobcycle.value;
 	cycle /= cl_bobcycle.value;
-	if (cycle < cl_bobup.value && cl_bobup.value)
+	if (cycle < cl_bobup.value)
 		cycle = M_PI * cycle / cl_bobup.value;
-	else if (cl_bobup.value != 1)
+	else
 		cycle = M_PI + M_PI*(cycle-cl_bobup.value)/(1.0 - cl_bobup.value);
 
 // bob is proportional to velocity in the xy plane
@@ -616,49 +608,16 @@ void V_UpdatePalette (void)
 		newpal += 3;
 	}
 
-//	VID_ShiftPalette (pal);	
-}
-#else	// !GLQUAKE
-void V_NewPalette (void)
-{
-	int	i, j;
-	byte	*basepal, *newpal;
-	byte	pal[768];
-	int	r, g, b;
-
-	basepal = host_basepal;
-	newpal = pal;
-	
-	for (i=0 ; i<256 ; i++)
-	{
-		r = basepal[0];
-		g = basepal[1];
-		b = basepal[2];
-		basepal += 3;
-	
-		if (gl_polyblend.value)
-		{
-			for (j=0 ; j<NUM_CSHIFTS ; j++)	
-			{
-				r += (cl.cshifts[j].percent*(cl.cshifts[j].destcolor[0]-r))>>8;
-				g += (cl.cshifts[j].percent*(cl.cshifts[j].destcolor[1]-g))>>8;
-				b += (cl.cshifts[j].percent*(cl.cshifts[j].destcolor[2]-b))>>8;
-			}
-		}
-		
-		newpal[0] = gammatable[r];
-		newpal[1] = gammatable[g];
-		newpal[2] = gammatable[b];
-		newpal += 3;
-	}
-
 	VID_ShiftPalette (pal);	
 }
-
+#else	// !GLQUAKE
 void V_UpdatePalette (void)
 {
-	int	 i, j;
-	qboolean new;
+	int		i, j;
+	qboolean	new;
+	byte	*basepal, *newpal;
+	byte	pal[768];
+	int		r,g,b;
 	qboolean force;
 
 	V_CalcPowerupCshift ();
@@ -694,7 +653,30 @@ void V_UpdatePalette (void)
 	if (!new && !force)
 		return;
 			
-	V_NewPalette ();
+	basepal = host_basepal;
+	newpal = pal;
+	
+	for (i=0 ; i<256 ; i++)
+	{
+		r = basepal[0];
+		g = basepal[1];
+		b = basepal[2];
+		basepal += 3;
+	
+		for (j=0 ; j<NUM_CSHIFTS ; j++)	
+		{
+			r += (cl.cshifts[j].percent*(cl.cshifts[j].destcolor[0]-r))>>8;
+			g += (cl.cshifts[j].percent*(cl.cshifts[j].destcolor[1]-g))>>8;
+			b += (cl.cshifts[j].percent*(cl.cshifts[j].destcolor[2]-b))>>8;
+		}
+		
+		newpal[0] = gammatable[r];
+		newpal[1] = gammatable[g];
+		newpal[2] = gammatable[b];
+		newpal += 3;
+	}
+
+	VID_ShiftPalette (pal);	
 }
 #endif	// !GLQUAKE
 
@@ -832,11 +814,8 @@ void V_CalcViewRoll (void)
 
 	if (v_dmg_time > 0)
 	{
-		if (v_kicktime.value)
-		{
-			r_refdef.viewangles[ROLL] += v_dmg_time/v_kicktime.value*v_dmg_roll;
-			r_refdef.viewangles[PITCH] += v_dmg_time/v_kicktime.value*v_dmg_pitch;
-		}
+		r_refdef.viewangles[ROLL] += v_dmg_time/v_kicktime.value*v_dmg_roll;
+		r_refdef.viewangles[PITCH] += v_dmg_time/v_kicktime.value*v_dmg_pitch;
 		v_dmg_time -= host_frametime;
 	}
 
@@ -871,9 +850,9 @@ void V_CalcIntermissionRefdef (void)
 
 // allways idle in intermission
 	old = v_idlescale.value;
-	Cvar_SetValue ("v_idlescale", 1);
+	v_idlescale.value = 1;
 	V_AddIdle ();
-	Cvar_SetValue ("v_idlescale", old);
+	v_idlescale.value = old;
 }
 
 /*
@@ -976,8 +955,7 @@ void V_CalcRefdef (void)
 	view->colormap = vid.colormap;
 
 // set up the refresh position
-	if (v_gunkick.value)
-		VectorAdd (r_refdef.viewangles, cl.punchangle, r_refdef.viewangles);
+	VectorAdd (r_refdef.viewangles, cl.punchangle, r_refdef.viewangles);
 
 // smooth out stair step ups
 if (cl.onground && ent->origin[2] - oldz > 0)
@@ -989,7 +967,7 @@ if (cl.onground && ent->origin[2] - oldz > 0)
 //FIXME		I_Error ("steptime < 0");
 		steptime = 0;
 
-	oldz += steptime * 160; //80
+	oldz += steptime * 80;
 	if (oldz > ent->origin[2])
 		oldz = ent->origin[2];
 	if (ent->origin[2] - oldz > 12)
@@ -1127,14 +1105,9 @@ void V_Init (void)
 	Cvar_RegisterVariable (&v_kicktime);
 	Cvar_RegisterVariable (&v_kickroll);
 	Cvar_RegisterVariable (&v_kickpitch);	
-	Cvar_RegisterVariable (&v_gunkick);	
 	
 	BuildGammaTable (1.0);	// no gamma yet
 	Cvar_RegisterVariable (&v_gamma);
-
-#ifndef GLQUAKE
-	Cvar_RegisterVariable (&gl_polyblend);
-#endif
 }
 
 

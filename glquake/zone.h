@@ -101,10 +101,10 @@ void *Hunk_HighAllocName (int size, char *name);
 int	Hunk_LowMark (void);
 void Hunk_FreeToLowMark (int mark);
 
-//int	Hunk_HighMark (void);
-void Hunk_FreeToHighMark (void);
+int	Hunk_HighMark (void);
+void Hunk_FreeToHighMark (int mark);
 
-void *Hunk_TempAlloc (int size, char *name);
+void *Hunk_TempAlloc (int size);
 
 void Hunk_Check (void);
 
@@ -124,8 +124,6 @@ void Cache_Free (cache_user_t *c);
 void *Cache_Alloc (cache_user_t *c, int size, char *name);
 // Returns NULL if all purgable data was tossed and there still
 // wasn't enough room.
-
-void Cache_Excess (char *Func, char *Type, int *pLoadTimes, char *Name);
 
 void Cache_Report (void);
 

@@ -64,28 +64,22 @@ void SV_CheckAllEnts (void)
 	edict_t		*check;
 
 // see if any solid entities are inside the final position
-	for (e=1 ; e<sv.num_edicts ; e++)
+	check = NEXT_EDICT(sv.edicts);
+	for (e=1 ; e<sv.num_edicts ; e++, check = NEXT_EDICT(check))
 	{
-		if (pr_free[e])
+		if (check->free)
 			continue;
-		check = EDICT_NUM2(e);
 		if (check->v.movetype == MOVETYPE_PUSH
 		|| check->v.movetype == MOVETYPE_NONE
-		|| check->v.movetype == MOVETYPE_FOLLOW // Nehahra
+#ifdef QUAKE2
+		|| check->v.movetype == MOVETYPE_FOLLOW
+#endif
 		|| check->v.movetype == MOVETYPE_NOCLIP)
 			continue;
 
 		if (SV_TestEntityPosition (check))
 			Con_Printf ("entity in invalid position\n");
 	}
-}
-
-static void PrNaNEdict (char *type, edict_t *ent)
-{
-	Con_SafePrintf ("Got a NaN %s on edict %d", type, NUM_FOR_EDICT("SV_CheckVelocity", ent));
-	pr_PrMember (ent->v.classname);
-	pr_PrMember (ent->v.model);
-	Con_SafePrintf ("\n");
 }
 
 /*
@@ -104,13 +98,12 @@ void SV_CheckVelocity (edict_t *ent)
 	{
 		if (IS_NAN(ent->v.velocity[i]))
 		{
-			PrNaNEdict ("velocity", ent);
+			Con_Printf ("Got a NaN velocity on %s\n", pr_strings + ent->v.classname);
 			ent->v.velocity[i] = 0;
-			ent->v.angles[0] = ent->v.angles[1] = ent->v.angles[2] = 0; // Seems to help in debug version (?)
 		}
 		if (IS_NAN(ent->v.origin[i]))
 		{
-			PrNaNEdict ("origin", ent);
+			Con_Printf ("Got a NaN origin on %s\n", pr_strings + ent->v.classname);
 			ent->v.origin[i] = 0;
 		}
 		if (ent->v.velocity[i] > sv_maxvelocity.value)
@@ -146,8 +139,8 @@ qboolean SV_RunThink (edict_t *ent)
 	pr_global_struct->time = thinktime;
 	pr_global_struct->self = EDICT_TO_PROG(ent);
 	pr_global_struct->other = EDICT_TO_PROG(sv.edicts);
-	PR_ExecuteProgram (ent->v.think, "think");
-	return !pr_free[NUM_FOR_EDICT2(ent)];
+	PR_ExecuteProgram (ent->v.think);
+	return !ent->free;
 }
 
 /*
@@ -169,14 +162,14 @@ void SV_Impact (edict_t *e1, edict_t *e2)
 	{
 		pr_global_struct->self = EDICT_TO_PROG(e1);
 		pr_global_struct->other = EDICT_TO_PROG(e2);
-		PR_ExecuteProgram (e1->v.touch, "touch");
+		PR_ExecuteProgram (e1->v.touch);
 	}
 	
 	if (e2->v.touch && e2->v.solid != SOLID_NOT)
 	{
 		pr_global_struct->self = EDICT_TO_PROG(e2);
 		pr_global_struct->other = EDICT_TO_PROG(e1);
-		PR_ExecuteProgram (e2->v.touch, "touch");
+		PR_ExecuteProgram (e2->v.touch);
 	}
 
 	pr_global_struct->self = old_self;
@@ -305,7 +298,7 @@ int SV_FlyMove (edict_t *ent, float time, trace_t *steptrace)
 // run the impact function
 //
 		SV_Impact (ent, trace.ent);
-		if (pr_free[NUM_FOR_EDICT2(ent)])
+		if (ent->free)
 			break;		// removed by the impact function
 
 		
@@ -436,46 +429,6 @@ trace_t SV_PushEntity (edict_t *ent, vec3_t push)
 	return trace;
 }					
 
-/*
-============
-SV_IsBlockable
-============
-*/
-qboolean SV_IsBlockable (float solid)
-{
-	switch ((int)solid)
-	{
-		case SOLID_BSP :	// everything that blocks: bsp models==map brushes==doors, plats etc
-		case SOLID_BBOX :	// normally boxes
-		case SOLID_SLIDEBOX :	// normally monsters
-				      return true;
-	}
-
-	return false;
-}
-
-/*
-============
-SV_BlockEdict
-============
-*/
-qboolean SV_BlockEdict (edict_t *pusher, edict_t *check, vec3_t move)
-{
-	float solid_save;
-
-	if (!SV_IsBlockable (pusher->v.solid))
-		return false;
-
-	solid_save = pusher->v.solid;
-
-	// try moving the contacted entity 
-	pusher->v.solid = SOLID_NOT;
-	SV_PushEntity (check, move);
-	pusher->v.solid = solid_save;
-
-	// if it is still inside the pusher, block
-	return SV_TestEntityPosition (check) != NULL;
-}
 
 /*
 ============
@@ -485,11 +438,11 @@ SV_PushMove
 */
 void SV_PushMove (edict_t *pusher, float movetime)
 {
-	int		i, e;
-	edict_t		*check;
+	int			i, e;
+	edict_t		*check, *block;
 	vec3_t		mins, maxs, move;
 	vec3_t		entorig, pushorig;
-	int		num_moved;
+	int			num_moved;
 	edict_t		*moved_edict[MAX_EDICTS];
 	vec3_t		moved_from[MAX_EDICTS];
 
@@ -517,20 +470,22 @@ void SV_PushMove (edict_t *pusher, float movetime)
 
 // see if any solid entities are inside the final position
 	num_moved = 0;
-	for (e=1 ; e<sv.num_edicts ; e++)
+	check = NEXT_EDICT(sv.edicts);
+	for (e=1 ; e<sv.num_edicts ; e++, check = NEXT_EDICT(check))
 	{
-		if (pr_free[e])
+		if (check->free)
 			continue;
-		check = EDICT_NUM2(e);
 		if (check->v.movetype == MOVETYPE_PUSH
 		|| check->v.movetype == MOVETYPE_NONE
-		|| check->v.movetype == MOVETYPE_FOLLOW // Nehahra
+#ifdef QUAKE2
+		|| check->v.movetype == MOVETYPE_FOLLOW
+#endif
 		|| check->v.movetype == MOVETYPE_NOCLIP)
 			continue;
 
 	// if the entity is standing on the pusher, it will definately be moved
 		if ( ! ( ((int)check->v.flags & FL_ONGROUND)
-		&& PROG_TO_EDICT2("SV_PushMove", check->v.groundentity) == pusher) )
+		&& PROG_TO_EDICT(check->v.groundentity) == pusher) )
 		{
 			if ( check->v.absmin[0] >= maxs[0]
 			|| check->v.absmin[1] >= maxs[1]
@@ -554,7 +509,14 @@ void SV_PushMove (edict_t *pusher, float movetime)
 		moved_edict[num_moved] = check;
 		num_moved++;
 
-		if (SV_BlockEdict (pusher, check, move))
+		// try moving the contacted entity 
+		pusher->v.solid = SOLID_NOT;
+		SV_PushEntity (check, move);
+		pusher->v.solid = SOLID_BSP;
+
+	// if it is still inside the pusher, block
+		block = SV_TestEntityPosition (check);
+		if (block)
 		{	// fail the move
 			if (check->v.mins[0] == check->v.maxs[0])
 				continue;
@@ -578,7 +540,7 @@ void SV_PushMove (edict_t *pusher, float movetime)
 			{
 				pr_global_struct->self = EDICT_TO_PROG(pusher);
 				pr_global_struct->other = EDICT_TO_PROG(check);
-				PR_ExecuteProgram (pusher->v.blocked, "blocked");
+				PR_ExecuteProgram (pusher->v.blocked);
 			}
 			
 		// move back any entities we already moved
@@ -603,11 +565,11 @@ SV_PushRotate
 */
 void SV_PushRotate (edict_t *pusher, float movetime)
 {
-	int		i, e;
-	edict_t		*check;
+	int			i, e;
+	edict_t		*check, *block;
 	vec3_t		move, a, amove;
 	vec3_t		entorig, pushorig;
-	int		num_moved;
+	int			num_moved;
 	edict_t		*moved_edict[MAX_EDICTS];
 	vec3_t		moved_from[MAX_EDICTS];
 	vec3_t		org, org2;
@@ -680,7 +642,14 @@ void SV_PushRotate (edict_t *pusher, float movetime)
 		org2[2] = DotProduct (org, up);
 		VectorSubtract (org2, org, move);
 
-		if (SV_BlockEdict (pusher, check, move))
+		// try moving the contacted entity 
+		pusher->v.solid = SOLID_NOT;
+		SV_PushEntity (check, move);
+		pusher->v.solid = SOLID_BSP;
+
+	// if it is still inside the pusher, block
+		block = SV_TestEntityPosition (check);
+		if (block)
 		{	// fail the move
 			if (check->v.mins[0] == check->v.maxs[0])
 				continue;
@@ -766,8 +735,8 @@ void SV_Physics_Pusher (edict_t *ent)
 		pr_global_struct->time = sv.time;
 		pr_global_struct->self = EDICT_TO_PROG(ent);
 		pr_global_struct->other = EDICT_TO_PROG(sv.edicts);
-		PR_ExecuteProgram (ent->v.think, "think");
-		if (pr_free[NUM_FOR_EDICT2(ent)])
+		PR_ExecuteProgram (ent->v.think);
+		if (ent->free)
 			return;
 	}
 
@@ -792,10 +761,9 @@ clipping hull.
 */
 void SV_CheckStuck (edict_t *ent)
 {
-	int	     i, j;
-	int	     z;
-	vec3_t	     org;
-	static float lastmsg = 0, lastmsg2 = 0;
+	int		i, j;
+	int		z;
+	vec3_t	org;
 
 	if (!SV_TestEntityPosition(ent))
 	{
@@ -807,9 +775,7 @@ void SV_CheckStuck (edict_t *ent)
 	VectorCopy (ent->v.oldorigin, ent->v.origin);
 	if (!SV_TestEntityPosition(ent))
 	{
-		if (IsTimeout (&lastmsg2, 2))
-			Con_DPrintf ("Unstuck.\n");
-
+		Con_DPrintf ("Unstuck.\n");
 		SV_LinkEdict (ent, true);
 		return;
 	}
@@ -823,18 +789,14 @@ void SV_CheckStuck (edict_t *ent)
 				ent->v.origin[2] = org[2] + z;
 				if (!SV_TestEntityPosition(ent))
 				{
-					if (IsTimeout (&lastmsg2, 2))
-						Con_DPrintf ("Unstuck.\n");
-
+					Con_DPrintf ("Unstuck.\n");
 					SV_LinkEdict (ent, true);
 					return;
 				}
 			}
 			
 	VectorCopy (org, ent->v.origin);
-	
-	if (IsTimeout (&lastmsg, 2))
-		Con_DPrintf ("player is stuck.\n");
+	Con_DPrintf ("player is stuck.\n");
 }
 
 
@@ -1025,7 +987,7 @@ void SV_WalkMove (edict_t *ent)
 	if (sv_nostep.value)
 		return;
 	
-	if (sv_player && (int)sv_player->v.flags & FL_WATERJUMP )
+	if ( (int)sv_player->v.flags & FL_WATERJUMP )
 		return;
 
 	VectorCopy (ent->v.origin, nosteporg);
@@ -1104,7 +1066,7 @@ void SV_Physics_Client (edict_t	*ent, int num)
 //	
 	pr_global_struct->time = sv.time;
 	pr_global_struct->self = EDICT_TO_PROG(ent);
-	PR_ExecuteProgram (pr_global_struct->PlayerPreThink, "PlayerPreThink");
+	PR_ExecuteProgram (pr_global_struct->PlayerPreThink);
 	
 //
 // do a move
@@ -1165,7 +1127,7 @@ void SV_Physics_Client (edict_t	*ent, int num)
 
 	pr_global_struct->time = sv.time;
 	pr_global_struct->self = EDICT_TO_PROG(ent);
-	PR_ExecuteProgram (pr_global_struct->PlayerPostThink, "PlayerPostThink");
+	PR_ExecuteProgram (pr_global_struct->PlayerPostThink);
 }
 
 //============================================================================
@@ -1183,7 +1145,7 @@ void SV_Physics_None (edict_t *ent)
 	SV_RunThink (ent);
 }
 
-// Nehahra
+#ifdef QUAKE2
 /*
 =============
 SV_Physics_Follow
@@ -1193,39 +1155,12 @@ Entities that are "stuck" to another entity
 */
 void SV_Physics_Follow (edict_t *ent)
 {
-	vec3_t  vf, vr, vu, angles, v;
-	edict_t *e;
-
-	// regular thinking
-	if (!SV_RunThink (ent))
-		return;
-
-	e = PROG_TO_EDICT("SV_Physics_Follow", ent->v.aiment);
-	if (e->v.angles[0] == ent->v.punchangle[0] && e->v.angles[1] == ent->v.punchangle[1] && e->v.angles[2] == ent->v.punchangle[2])
-	{
-		// quick case for no rotation
-		VectorAdd(e->v.origin, ent->v.view_ofs, ent->v.origin);
-	}
-	else
-	{
-		angles[0] = -ent->v.punchangle[0];
-		angles[1] =  ent->v.punchangle[1];
-		angles[2] =  ent->v.punchangle[2];
-		AngleVectors (angles, vf, vr, vu);
-		v[0] = ent->v.view_ofs[0] * vf[0] + ent->v.view_ofs[1] * vr[0] + ent->v.view_ofs[2] * vu[0];
-		v[1] = ent->v.view_ofs[0] * vf[1] + ent->v.view_ofs[1] * vr[1] + ent->v.view_ofs[2] * vu[1];
-		v[2] = ent->v.view_ofs[0] * vf[2] + ent->v.view_ofs[1] * vr[2] + ent->v.view_ofs[2] * vu[2];
-		angles[0] = -e->v.angles[0];
-		angles[1] =  e->v.angles[1];
-		angles[2] =  e->v.angles[2];
-		AngleVectors (angles, vf, vr, vu);
-		ent->v.origin[0] = v[0] * vf[0] + v[1] * vf[1] + v[2] * vf[2] + e->v.origin[0];
-		ent->v.origin[1] = v[0] * vr[0] + v[1] * vr[1] + v[2] * vr[2] + e->v.origin[1];
-		ent->v.origin[2] = v[0] * vu[0] + v[1] * vu[1] + v[2] * vu[2] + e->v.origin[2];
-	}
-	VectorAdd (e->v.angles, ent->v.v_angle, ent->v.angles);
+// regular thinking
+	SV_RunThink (ent);
+	VectorAdd (PROG_TO_EDICT(ent->v.aiment)->v.origin, ent->v.v_angle, ent->v.origin);
 	SV_LinkEdict (ent, true);
 }
+#endif
 
 /*
 =============
@@ -1371,7 +1306,7 @@ void SV_Physics_Toss (edict_t *ent)
 #endif
 	if (trace.fraction == 1)
 		return;
-	if (pr_free[NUM_FOR_EDICT2(ent)])
+	if (ent->free)
 		return;
 	
 	if (ent->v.movetype == MOVETYPE_BOUNCE)
@@ -1571,29 +1506,25 @@ SV_Physics
 */
 void SV_Physics (void)
 {
-	int	i, j;
+	int		i;
 	edict_t	*ent;
 
 // let the progs know that a new frame has started
 	pr_global_struct->self = EDICT_TO_PROG(sv.edicts);
 	pr_global_struct->other = EDICT_TO_PROG(sv.edicts);
 	pr_global_struct->time = sv.time;
-	PR_ExecuteProgram (pr_global_struct->StartFrame, "StartFrame");
+	PR_ExecuteProgram (pr_global_struct->StartFrame);
 
 //SV_CheckAllEnts ();
 
 //
 // treat each object in turn
 //
-	for (i=j=0 ; i<sv.num_edicts ; i++)
+	ent = sv.edicts;
+	for (i=0 ; i<sv.num_edicts ; i++, ent = NEXT_EDICT(ent))
 	{
-		if (pr_free[i])
+		if (ent->free)
 			continue;
-
-		if (++j % 100 == 0)
-			S_ExtraUpdateTime (); // Improve sound when many entities
-
-		ent = EDICT_NUM2(i);
 
 		if (pr_global_struct->force_retouch)
 		{
@@ -1606,20 +1537,15 @@ void SV_Physics (void)
 			SV_Physics_Pusher (ent);
 		else if (ent->v.movetype == MOVETYPE_NONE)
 			SV_Physics_None (ent);
-		else if (ent->v.movetype == MOVETYPE_FOLLOW) // Nehahra
+#ifdef QUAKE2
+		else if (ent->v.movetype == MOVETYPE_FOLLOW)
 			SV_Physics_Follow (ent);
+#endif
 		else if (ent->v.movetype == MOVETYPE_NOCLIP)
 			SV_Physics_Noclip (ent);
 		else if (ent->v.movetype == MOVETYPE_STEP)
 			SV_Physics_Step (ent);
-                else if (ent->v.movetype == MOVETYPE_WALK) { // Nehahra
-                 if (!SV_RunThink (ent))
-                         return;
-                 if (!SV_CheckWater (ent) && ! ((int)ent->v.flags & FL_WATERJUMP) )
-                         SV_AddGravity (ent);
-                 SV_CheckStuck (ent);
-                 SV_WalkMove (ent);
-		} else if (ent->v.movetype == MOVETYPE_TOSS 
+		else if (ent->v.movetype == MOVETYPE_TOSS 
 		|| ent->v.movetype == MOVETYPE_BOUNCE
 #ifdef QUAKE2
 		|| ent->v.movetype == MOVETYPE_BOUNCEMISSILE
@@ -1637,7 +1563,8 @@ void SV_Physics (void)
 	sv.time += host_frametime;
 }
 
-// Nehahra
+
+#ifdef QUAKE2
 trace_t SV_Trace_Toss (edict_t *ent, edict_t *ignore)
 {
 	edict_t	tempent, *tent;
@@ -1645,7 +1572,8 @@ trace_t SV_Trace_Toss (edict_t *ent, edict_t *ignore)
 	vec3_t	move;
 	vec3_t	end;
 	double	save_frametime;
-	int	i = 0;
+//	extern particle_t	*active_particles, *free_particles;
+//	particle_t	*p;
 
 
 	save_frametime = host_frametime;
@@ -1664,16 +1592,26 @@ trace_t SV_Trace_Toss (edict_t *ent, edict_t *ignore)
 		trace = SV_Move (tent->v.origin, tent->v.mins, tent->v.maxs, end, MOVE_NORMAL, tent);	
 		VectorCopy (trace.endpos, tent->v.origin);
 
+//		p = free_particles;
+//		if (p)
+//		{
+//			free_particles = p->next;
+//			p->next = active_particles;
+//			active_particles = p;
+//		
+//			p->die = 256;
+//			p->color = 15;
+//			p->type = pt_static;
+//			VectorCopy (vec3_origin, p->vel);
+//			VectorCopy (tent->v.origin, p->org);
+//		}
 
 		if (trace.ent)
 			if (trace.ent != ignore)
 				break;
-		
-		// Sanity
-		if (++i == 200)
-			Sys_Error ("SV_Trace_Toss: excessive trace (%d)", i);
 	}
+//	p->color = 224;
 	host_frametime = save_frametime;
 	return trace;
 }
-
+#endif

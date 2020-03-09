@@ -8,7 +8,7 @@ of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
 See the GNU General Public License for more details.
 
@@ -41,11 +41,11 @@ double		host_frametime;
 double		host_time;
 double		realtime;				// without any filtering or bounding
 double		oldrealtime;			// last frame run
-int		host_framecount;
+int			host_framecount;
 
-int		host_hunklevel;
+int			host_hunklevel;
 
-int		minimum_memory;
+int			minimum_memory;
 
 client_t	*host_client;			// current client
 
@@ -56,8 +56,6 @@ byte		*host_colormap;
 
 cvar_t	host_framerate = {"host_framerate","0"};	// set for slow motion
 cvar_t	host_speeds = {"host_speeds","0"};			// set for running times
-cvar_t	host_sleep = {"host_sleep", "1"};
-cvar_t	host_maxfps = {"host_maxfps", "72"};
 
 cvar_t	sys_ticrate = {"sys_ticrate","0.05"};
 cvar_t	serverprofile = {"serverprofile","0"};
@@ -91,24 +89,23 @@ Host_EndGame
 */
 void Host_EndGame (char *message, ...)
 {
-	va_list	argptr;
-	char	string[MAX_PRINTMSG]; //1024
-
+	va_list		argptr;
+	char		string[1024];
+	
 	va_start (argptr,message);
-	COM_vsnprintf ("Host_EndGame", string, sizeof(string) - 1, message, argptr);
+	vsprintf (string,message,argptr);
 	va_end (argptr);
 	Con_DPrintf ("Host_EndGame: %s\n",string);
-
+	
 	if (sv.active)
 		Host_ShutdownServer (false);
 
 	if (cls.state == ca_dedicated)
 		Sys_Error ("Host_EndGame: %s\n",string);	// dedicated servers exit
-
+	
 	if (cls.demonum != -1)
 		CL_NextDemo ();
-
-	if (cls.demonum == -1)
+	else
 		CL_Disconnect ();
 
 	longjmp (host_abortserver, 1);
@@ -123,25 +120,21 @@ This shuts down both the client and server
 */
 void Host_Error (char *error, ...)
 {
-	va_list		 argptr;
-	char		 string[MAX_PRINTMSG]; //1024
+	va_list		argptr;
+	char		string[1024];
 	static	qboolean inerror = false;
-
+	
 	if (inerror)
-#ifdef NOISE
-		Con_Printf ("Host_Error: recursively entered\n");
-#else
 		Sys_Error ("Host_Error: recursively entered");
-#endif
 	inerror = true;
-
+	
 	SCR_EndLoadingPlaque ();		// reenable screen updates
 
 	va_start (argptr,error);
-	COM_vsnprintf ("Host_Error", string, sizeof(string) - 1, error, argptr);
+	vsprintf (string,error,argptr);
 	va_end (argptr);
 	Con_Printf ("Host_Error: %s\n",string);
-
+	
 	if (sv.active)
 		Host_ShutdownServer (false);
 
@@ -166,7 +159,7 @@ void	Host_FindMaxClients (void)
 	int		i;
 
 	svs.maxclients = 1;
-
+		
 	i = COM_CheckParm ("-dedicated");
 	if (i)
 	{
@@ -216,11 +209,9 @@ Host_InitLocal
 void Host_InitLocal (void)
 {
 	Host_InitCommands ();
-
+	
 	Cvar_RegisterVariable (&host_framerate);
 	Cvar_RegisterVariable (&host_speeds);
-	Cvar_RegisterVariable (&host_sleep);
-	Cvar_RegisterVariable (&host_maxfps);
 
 	Cvar_RegisterVariable (&sys_ticrate);
 	Cvar_RegisterVariable (&serverprofile);
@@ -240,7 +231,7 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&temp1);
 
 	Host_FindMaxClients ();
-
+	
 	host_time = 1.0;		// so a think at time 0 won't get called
 }
 
@@ -258,7 +249,7 @@ void Host_WriteConfiguration (void)
 
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
-	if (host_initialized && !isDedicated)
+	if (host_initialized & !isDedicated)
 	{
 		f = fopen (va("%s/config.cfg",com_gamedir), "w");
 		if (!f)
@@ -266,7 +257,7 @@ void Host_WriteConfiguration (void)
 			Con_Printf ("Couldn't write config.cfg.\n");
 			return;
 		}
-
+		
 		Key_WriteBindings (f);
 		Cvar_WriteVariables (f);
 
@@ -279,19 +270,19 @@ void Host_WriteConfiguration (void)
 =================
 SV_ClientPrintf
 
-Sends text across to be displayed
+Sends text across to be displayed 
 FIXME: make this just a stuffed echo?
 =================
 */
 void SV_ClientPrintf (char *fmt, ...)
 {
-	va_list	argptr;
-	char	string[MAX_PRINTMSG]; //1024
-
+	va_list		argptr;
+	char		string[1024];
+	
 	va_start (argptr,fmt);
-	COM_vsnprintf ("SV_ClientPrintf", string, sizeof(string) - 1, fmt, argptr);
+	vsprintf (string, fmt,argptr);
 	va_end (argptr);
-
+	
 	MSG_WriteByte (&host_client->message, svc_print);
 	MSG_WriteString (&host_client->message, string);
 }
@@ -305,14 +296,14 @@ Sends text to all active clients
 */
 void SV_BroadcastPrintf (char *fmt, ...)
 {
-	va_list	argptr;
-	char	string[MAX_PRINTMSG]; //1024
-	int	i;
-
+	va_list		argptr;
+	char		string[1024];
+	int			i;
+	
 	va_start (argptr,fmt);
-	COM_vsnprintf ("SV_BroadcastPrintf", string, sizeof(string) - 1, fmt, argptr);
+	vsprintf (string, fmt,argptr);
 	va_end (argptr);
-
+	
 	for (i=0 ; i<svs.maxclients ; i++)
 		if (svs.clients[i].active && svs.clients[i].spawned)
 		{
@@ -330,13 +321,13 @@ Send text over to the client to be executed
 */
 void Host_ClientCommands (char *fmt, ...)
 {
-	va_list	argptr;
-	char	string[MAX_PRINTMSG]; //1024
-
+	va_list		argptr;
+	char		string[1024];
+	
 	va_start (argptr,fmt);
-	COM_vsnprintf ("Host_ClientCommands", string, sizeof(string) - 1, fmt, argptr);
+	vsprintf (string, fmt,argptr);
 	va_end (argptr);
-
+	
 	MSG_WriteByte (&host_client->message, svc_stufftext);
 	MSG_WriteString (&host_client->message, string);
 }
@@ -363,14 +354,14 @@ void SV_DropClient (qboolean crash)
 			MSG_WriteByte (&host_client->message, svc_disconnect);
 			NET_SendMessage (host_client->netconnection, &host_client->message);
 		}
-
+	
 		if (host_client->edict && host_client->spawned)
 		{
 		// call the prog function for removing a client
 		// this will set the body to a dead frame, among other things
 			saveSelf = pr_global_struct->self;
 			pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
-			PR_ExecuteProgram (pr_global_struct->ClientDisconnect, "ClientDisconnect");
+			PR_ExecuteProgram (pr_global_struct->ClientDisconnect);
 			pr_global_struct->self = saveSelf;
 		}
 
@@ -411,7 +402,7 @@ Host_ShutdownServer
 This only happens at the end of a game, not between levels
 ==================
 */
-void Host_ShutdownServer (qboolean crash)
+void Host_ShutdownServer(qboolean crash)
 {
 	int		i;
 	int		count;
@@ -458,7 +449,6 @@ void Host_ShutdownServer (qboolean crash)
 	buf.data = message;
 	buf.maxsize = 4;
 	buf.cursize = 0;
-	buf.function = "Host_ShutdownServer";
 	MSG_WriteByte(&buf, svc_disconnect);
 	count = NET_SendToAll(&buf, 5);
 	if (count)
@@ -489,7 +479,6 @@ void Host_ClearMemory (void)
 	Con_DPrintf ("Clearing memory\n");
 	D_FlushCaches ();
 	Mod_ClearAll ();
-	S_ClearAll ();
 	if (host_hunklevel)
 		Hunk_FreeToLowMark (host_hunklevel);
 
@@ -501,38 +490,6 @@ void Host_ClearMemory (void)
 
 //============================================================================
 
-/*
-===================
-CondSleep
-
-Conditionally sleeps to reduce CPU load
-===================
-*/
-static void CondSleep (double time)
-{
-	static double oldsleeptime;
-
-	if (cls.timedemo || !host_sleep.value || !time && host_sleep.value == 1)
-		return; // No sleeping now
-
-	// time should always be 0 except when called from Host_FilterTime
-	if (!time)
-	{
-		if (cls.demoplayback || cls.demorecording)
-			return; // Otherwise demos tend to be a bit shaky
-
-		// Used for host_sleep 2 calls
-		time = Sys_FloatTime ();
-
-		// Lower value here means more sleep and therefore lower performance
-		if (time - oldsleeptime < 0.020)
-			return; // Don't sleep too often
-	}
-
-	Sys_Sleep ();	// Prevent CPU hogging
-
-	oldsleeptime = time;
-}
 
 /*
 ===================
@@ -543,17 +500,10 @@ Returns false if the time is too short to run a frame
 */
 qboolean Host_FilterTime (float time)
 {
-	float maxfps;
-
 	realtime += time;
 
-	maxfps = CLAMP (1.0, host_maxfps.value, 0x7fffffff); // 2000.0, 1000.0
-
-	if (!cls.timedemo && realtime - oldrealtime < 1.0 / maxfps)
-	{
-		CondSleep (realtime);
-		return false;	// framerate is too high
-	}
+	if (!cls.timedemo && realtime - oldrealtime < 1.0/72.0)
+		return false;		// framerate is too high
 
 	host_frametime = realtime - oldrealtime;
 	oldrealtime = realtime;
@@ -567,7 +517,7 @@ qboolean Host_FilterTime (float time)
 		if (host_frametime < 0.001)
 			host_frametime = 0.001;
 	}
-
+	
 	return true;
 }
 
@@ -603,15 +553,15 @@ Host_ServerFrame
 
 void _Host_ServerFrame (void)
 {
-// run the world state
+// run the world state	
 	pr_global_struct->frametime = host_frametime;
 
 // read client messages
 	SV_RunClients ();
-
+	
 // move things around and think
 // always pause in single player if in console or menus
-	if (!SV_IsPaused ())
+	if (!sv.paused && (svs.maxclients > 1 || key_dest == key_game) )
 		SV_Physics ();
 }
 
@@ -620,12 +570,12 @@ void Host_ServerFrame (void)
 	float	save_host_frametime;
 	float	temp_host_frametime;
 
-// run the world state
+// run the world state	
 	pr_global_struct->frametime = host_frametime;
 
 // set the time and clear the general datagram
 	SV_ClearDatagram ();
-
+	
 // check for new clients
 	SV_CheckForNewClients ();
 
@@ -649,25 +599,22 @@ void Host_ServerFrame (void)
 
 void Host_ServerFrame (void)
 {
-// run the world state
+// run the world state	
 	pr_global_struct->frametime = host_frametime;
 
 // set the time and clear the general datagram
 	SV_ClearDatagram ();
-
+	
 // check for new clients
 	SV_CheckForNewClients ();
 
 // read client messages
 	SV_RunClients ();
-
+	
 // move things around and think
 // always pause in single player if in console or menus
-	if (!SV_IsPaused ())
-	{
+	if (!sv.paused && (svs.maxclients > 1 || key_dest == key_game) )
 		SV_Physics ();
-		CondSleep (0);
-	}
 
 // send all messages to the clients
 	SV_SendClientMessages ();
@@ -675,7 +622,6 @@ void Host_ServerFrame (void)
 
 #endif
 
-#define HOST_AVG 10
 
 /*
 ==================
@@ -686,26 +632,21 @@ Runs all active servers
 */
 void _Host_Frame (float time)
 {
-	static double	time1 = 0;
-	static double	time2 = 0;
-	static double	time3 = 0;
-	static int	avg_index;
+	static double		time1 = 0;
+	static double		time2 = 0;
+	static double		time3 = 0;
+	int			pass1, pass2, pass3;
 
 	if (setjmp (host_abortserver) )
 		return;			// something bad happened, or the server disconnected
 
 // keep the random time dependent
 	rand ();
-
+	
 // decide the simulation time
 	if (!Host_FilterTime (time))
 		return;			// don't run too fast, or packets will flood out
-
-	if (!host_speeds.value)
-		time1 = time2 = time3 = avg_index = 0; // Reset
-
-	CondSleep (0);
-
+		
 // get new key events
 	Sys_SendKeyEvents ();
 
@@ -715,15 +656,12 @@ void _Host_Frame (float time)
 // process console commands
 	Cbuf_Execute ();
 
-	if (host_speeds.value && !time3)
-		time3 = Sys_FloatTime (); // No previous time3
-
 	NET_Poll();
 
 // if running the server locally, make intentions now
 	if (sv.active)
 		CL_SendCmd ();
-
+	
 //-------------------
 //
 // server operations
@@ -732,7 +670,7 @@ void _Host_Frame (float time)
 
 // check for commands typed to the host
 	Host_GetConsoleCommands ();
-
+	
 	if (sv.active)
 		Host_ServerFrame ();
 
@@ -758,14 +696,12 @@ void _Host_Frame (float time)
 // update video
 	if (host_speeds.value)
 		time1 = Sys_FloatTime ();
-
+		
 	SCR_UpdateScreen ();
-
-	CondSleep (0);
 
 	if (host_speeds.value)
 		time2 = Sys_FloatTime ();
-
+		
 // update audio
 	if (cls.signon == SIGNONS)
 	{
@@ -774,50 +710,19 @@ void _Host_Frame (float time)
 	}
 	else
 		S_Update (vec3_origin, vec3_origin, vec3_origin, vec3_origin);
-
+	
 	CDAudio_Update();
 
 	if (host_speeds.value)
 	{
-		static float pass1[HOST_AVG + 1], pass2[HOST_AVG + 1], pass3[HOST_AVG + 1];
-
-		if (host_speeds.value < 2 || avg_index > HOST_AVG)
-			avg_index = 0;
-
-		pass1[avg_index] = (time1 - time3)*1000;
+		pass1 = (time1 - time3)*1000;
 		time3 = Sys_FloatTime ();
-		pass2[avg_index] = (time2 - time1)*1000;
-		pass3[avg_index] = (time3 - time2)*1000;
-
-		if (avg_index == HOST_AVG - 1)
-		{
-			int i;
-
-			// Calculate average
-			pass1[HOST_AVG] = pass1[HOST_AVG] = pass1[HOST_AVG] = 0;
-
-			for (i = 0; i < HOST_AVG; ++i)
-			{
-				pass1[HOST_AVG] += pass1[i];
-				pass2[HOST_AVG] += pass2[i];
-				pass3[HOST_AVG] += pass3[i];
-			}
-
-			pass1[HOST_AVG] /= HOST_AVG;
-			pass2[HOST_AVG] /= HOST_AVG;
-			pass3[HOST_AVG] /= HOST_AVG;
-
-			++avg_index;
-		}
-
-		if (host_speeds.value < 2 || avg_index == HOST_AVG)
-			Con_Printf ("%3.0f tot %3.0f server %3.0f gfx %3.0f snd\n",
-				    pass1[avg_index] + pass2[avg_index] + pass3[avg_index], pass1[avg_index], pass2[avg_index], pass3[avg_index]);
-
-		if (host_speeds.value > 1)
-			++avg_index;
+		pass2 = (time2 - time1)*1000;
+		pass3 = (time3 - time2)*1000;
+		Con_Printf ("%3i tot %3i server %3i gfx %3i snd\n",
+					pass1+pass2+pass3, pass1, pass2, pass3);
 	}
-
+	
 	host_framecount++;
 }
 
@@ -833,14 +738,14 @@ void Host_Frame (float time)
 		_Host_Frame (time);
 		return;
 	}
-
+	
 	time1 = Sys_FloatTime ();
 	_Host_Frame (time);
-	time2 = Sys_FloatTime ();
-
+	time2 = Sys_FloatTime ();	
+	
 	timetotal += time2 - time1;
 	timecount++;
-
+	
 	if (timecount < 1000)
 		return;
 
@@ -868,7 +773,7 @@ void Host_InitVCR (quakeparms_t *parms)
 {
 	int		i, len, n;
 	char	*p;
-
+	
 	if (COM_CheckParm("-playback"))
 	{
 		if (com_argc != 2)
@@ -919,7 +824,7 @@ void Host_InitVCR (quakeparms_t *parms)
 			Sys_FileWrite(vcrFile, com_argv[i], len);
 		}
 	}
-
+	
 }
 
 /*
@@ -948,7 +853,7 @@ void Host_Init (quakeparms_t *parms)
 
 	Memory_Init (parms->membase, parms->memsize);
 	Cbuf_Init ();
-	Cmd_Init ();
+	Cmd_Init ();	
 	V_Init ();
 	Chase_Init ();
 	Host_InitVCR (parms);
@@ -956,8 +861,8 @@ void Host_Init (quakeparms_t *parms)
 	Host_InitLocal ();
 	W_LoadWadFile ("gfx.wad");
 	Key_Init ();
-	Con_Init ();
-	M_Init ();
+	Con_Init ();	
+	M_Init ();	
 	PR_Init ();
 	Mod_Init ();
 	NET_Init ();
@@ -965,9 +870,9 @@ void Host_Init (quakeparms_t *parms)
 
 	Con_Printf ("Exe: "__TIME__" "__DATE__"\n");
 	Con_Printf ("%4.1f megabyte heap\n",parms->memsize/ (1024*1024.0));
-
+	
 	R_InitTextures ();		// needed even for dedicated servers
-
+ 
 	if (cls.state != ca_dedicated)
 	{
 		host_basepal = (byte *)COM_LoadHunkFile ("gfx/palette.lmp");
@@ -1011,8 +916,8 @@ void Host_Init (quakeparms_t *parms)
 	host_hunklevel = Hunk_LowMark ();
 
 	host_initialized = true;
-
-	Sys_Printf ("========Quake Initialized=========\n");
+	
+	Sys_Printf ("========Quake Initialized=========\n");	
 }
 
 
@@ -1027,7 +932,7 @@ to run quit through here before the final handoff to the sys code.
 void Host_Shutdown(void)
 {
 	static qboolean isdown = false;
-
+	
 	if (isdown)
 	{
 		printf ("recursive shutdown\n");
@@ -1038,7 +943,7 @@ void Host_Shutdown(void)
 // keep Con_Printf from trying to update the screen
 	scr_disabled_for_loading = true;
 
-	Host_WriteConfiguration ();
+	Host_WriteConfiguration (); 
 
 	CDAudio_Shutdown ();
 	NET_Shutdown ();

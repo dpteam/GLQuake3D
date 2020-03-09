@@ -178,14 +178,14 @@ int Datagram_SendMessage (qsocket_t *sock, sizebuf_t *data)
 	Q_memcpy(sock->sendMessage, data->data, data->cursize);
 	sock->sendMessageLength = data->cursize;
 
-	if (data->cursize <= MAX_DATAGRAM2)
+	if (data->cursize <= MAX_DATAGRAM)
 	{
 		dataLen = data->cursize;
 		eom = NETFLAG_EOM;
 	}
 	else
 	{
-		dataLen = MAX_DATAGRAM2;
+		dataLen = MAX_DATAGRAM;
 		eom = 0;
 	}
 	packetLen = NET_HEADERSIZE + dataLen;
@@ -211,14 +211,14 @@ int SendMessageNext (qsocket_t *sock)
 	unsigned int	dataLen;
 	unsigned int	eom;
 
-	if (sock->sendMessageLength <= MAX_DATAGRAM2)
+	if (sock->sendMessageLength <= MAX_DATAGRAM)
 	{
 		dataLen = sock->sendMessageLength;
 		eom = NETFLAG_EOM;
 	}
 	else
 	{
-		dataLen = MAX_DATAGRAM2;
+		dataLen = MAX_DATAGRAM;
 		eom = 0;
 	}
 	packetLen = NET_HEADERSIZE + dataLen;
@@ -244,14 +244,14 @@ int ReSendMessage (qsocket_t *sock)
 	unsigned int	dataLen;
 	unsigned int	eom;
 
-	if (sock->sendMessageLength <= MAX_DATAGRAM2)
+	if (sock->sendMessageLength <= MAX_DATAGRAM)
 	{
 		dataLen = sock->sendMessageLength;
 		eom = NETFLAG_EOM;
 	}
 	else
 	{
-		dataLen = MAX_DATAGRAM2;
+		dataLen = MAX_DATAGRAM;
 		eom = 0;
 	}
 	packetLen = NET_HEADERSIZE + dataLen;
@@ -294,7 +294,7 @@ int Datagram_SendUnreliableMessage (qsocket_t *sock, sizebuf_t *data)
 	if (data->cursize == 0)
 		Sys_Error("Datagram_SendUnreliableMessage: zero length message\n");
 
-	if (data->cursize > MAX_DATAGRAM2)
+	if (data->cursize > MAX_DATAGRAM)
 		Sys_Error("Datagram_SendUnreliableMessage: message too big %u\n", data->cursize);
 #endif
 
@@ -361,14 +361,6 @@ int	Datagram_GetMessage (qsocket_t *sock)
 		flags = length & (~NETFLAG_LENGTH_MASK);
 		length &= NETFLAG_LENGTH_MASK;
 
-		// ProQuake extra protection
-		if (length > NET_DATAGRAMSIZE)
-		{
-			Con_Printf ("\002Datagram_GetMessage: ");
-			Con_Printf ("excessive datagram length (%d, max = %d)\n", length, NET_DATAGRAMSIZE);
-			return -1;
-		}
-
 		if (flags & NETFLAG_CTL)
 			continue;
 
@@ -418,10 +410,10 @@ int	Datagram_GetMessage (qsocket_t *sock)
 				Con_DPrintf("Duplicate ACK received\n");
 				continue;
 			}
-			sock->sendMessageLength -= MAX_DATAGRAM2;
+			sock->sendMessageLength -= MAX_DATAGRAM;
 			if (sock->sendMessageLength > 0)
 			{
-				Q_memcpy(sock->sendMessage, sock->sendMessage+MAX_DATAGRAM2, sock->sendMessageLength);
+				Q_memcpy(sock->sendMessage, sock->sendMessage+MAX_DATAGRAM, sock->sendMessageLength);
 				sock->sendNext = true;
 			}
 			else
@@ -834,19 +826,6 @@ void Datagram_Listen (qboolean state)
 			net_landrivers[i].Listen (state);
 }
 
-// ProQuake: this code appears multiple times, so factor it out
-static qsocket_t *Datagram_Reject (char *message, int acceptsock, struct qsockaddr *addr)
-{
-	SZ_Clear (&net_message);
-	// save space for the header, filled in later
-	MSG_WriteLong (&net_message, 0);
-	MSG_WriteByte (&net_message, CCREP_REJECT);
-	MSG_WriteString (&net_message, message);
-	*((int *)net_message.data) = BigLong (NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
-	dfunc.Write (acceptsock, net_message.data, net_message.cursize, addr);
-	SZ_Clear (&net_message);
-	return NULL;
-}
 
 static qsocket_t *_Datagram_CheckNewConnections (void)
 {
@@ -993,7 +972,17 @@ static qsocket_t *_Datagram_CheckNewConnections (void)
 		return NULL;
 
 	if (MSG_ReadByte() != NET_PROTOCOL_VERSION)
-		return Datagram_Reject ("Incompatible version.\n", acceptsock, &clientaddr);
+	{
+		SZ_Clear(&net_message);
+		// save space for the header, filled in later
+		MSG_WriteLong(&net_message, 0);
+		MSG_WriteByte(&net_message, CCREP_REJECT);
+		MSG_WriteString(&net_message, "Incompatible version.\n");
+		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
+		dfunc.Write (acceptsock, net_message.data, net_message.cursize, &clientaddr);
+		SZ_Clear(&net_message);
+		return NULL;
+	}
 
 #ifdef BAN_TEST
 	// check for a ban
@@ -1002,7 +991,17 @@ static qsocket_t *_Datagram_CheckNewConnections (void)
 		unsigned long testAddr;
 		testAddr = ((struct sockaddr_in *)&clientaddr)->sin_addr.s_addr;
 		if ((testAddr & banMask) == banAddr)
-			return Datagram_Reject ("You have been banned.\n", acceptsock, &clientaddr);
+		{
+			SZ_Clear(&net_message);
+			// save space for the header, filled in later
+			MSG_WriteLong(&net_message, 0);
+			MSG_WriteByte(&net_message, CCREP_REJECT);
+			MSG_WriteString(&net_message, "You have been banned.\n");
+			*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
+			dfunc.Write (acceptsock, net_message.data, net_message.cursize, &clientaddr);
+			SZ_Clear(&net_message);
+			return NULL;
+		}
 	}
 #endif
 
@@ -1031,17 +1030,26 @@ static qsocket_t *_Datagram_CheckNewConnections (void)
 			}
 			// it's somebody coming back in from a crash/disconnect
 			// so close the old qsocket and let their retry get them back in
-			
-			// ProQuake fix
-//			NET_Close(s);
-//			return NULL;
+			NET_Close(s);
+			return NULL;
 		}
 	}
 
 	// allocate a QSocket
 	sock = NET_NewQSocket ();
-	if (sock == NULL) // no room; try to let him know
-		return Datagram_Reject ("Server is full.\n", acceptsock, &clientaddr);
+	if (sock == NULL)
+	{
+		// no room; try to let him know
+		SZ_Clear(&net_message);
+		// save space for the header, filled in later
+		MSG_WriteLong(&net_message, 0);
+		MSG_WriteByte(&net_message, CCREP_REJECT);
+		MSG_WriteString(&net_message, "Server is full.\n");
+		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
+		dfunc.Write (acceptsock, net_message.data, net_message.cursize, &clientaddr);
+		SZ_Clear(&net_message);
+		return NULL;
+	}
 
 	// allocate a network socket
 	newsock = dfunc.OpenSocket(0);
