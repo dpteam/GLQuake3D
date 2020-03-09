@@ -49,14 +49,12 @@ void Chase_Reset (void)
 
 void TraceLine (vec3_t start, vec3_t end, vec3_t impact)
 {
-	trace_t	    trace;
-	qboolean    result;
+	trace_t	trace;
 
 	memset (&trace, 0, sizeof(trace));
-	result = SV_RecursiveHullCheck (cl.worldmodel->hulls, 0, 0, 1, start, end, &trace);
+	SV_RecursiveHullCheck (cl.worldmodel->hulls, 0, 0, 1, start, end, &trace);
 
-	// If result, don't use trace.endpos, otherwise view might suddenly point straight down
-	VectorCopy ((result ? end : trace.endpos), impact);
+	VectorCopy (trace.endpos, impact);
 }
 
 void Chase_Update (void)
@@ -87,16 +85,6 @@ void Chase_Update (void)
 	if (dist < 1)
 		dist = 1;
 	r_refdef.viewangles[PITCH] = -atan(stop[2] / dist) / M_PI * 180;
-
-	// chase_active 1 : keep view inside map except in noclip
-	// chase_active 2 : maintain chase_back distance even if view is outside map
-	if (chase_active.value == 1 && !(sv_player && sv_player->v.movetype == MOVETYPE_NOCLIP))
-	{
-		// Make sure view is inside map
-		TraceLine (r_refdef.vieworg, chase_dest, stop);
-		if (stop[0] != 0 || stop[1] != 0 || stop[2] != 0)
-			VectorCopy (stop, chase_dest);
-	}
 
 	// move towards destination
 	VectorCopy (chase_dest, r_refdef.vieworg);

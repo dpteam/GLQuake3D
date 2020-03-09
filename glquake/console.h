@@ -21,17 +21,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
 // console
 //
-extern int	con_totallines;
-extern int	con_backscroll;
-extern qboolean	con_forcedup;	// because no entities to refresh
-extern qboolean	con_initialized;
-extern byte	*con_chars;
-extern int	con_notifylines;		// scan lines to clear for notify lines
-extern int	con_vislines;
-extern int	con_current;
-extern int	con_x;
-extern int	con_linewidth;
-extern char	*con_text;
+extern int con_totallines;
+extern int con_backscroll;
+extern	qboolean con_forcedup;	// because no entities to refresh
+extern qboolean con_initialized;
+extern byte *con_chars;
+extern	int	con_notifylines;		// scan lines to clear for notify lines
 
 void Con_DrawCharacter (int cx, int line, int num);
 
@@ -46,7 +41,6 @@ void Con_Clear_f (void);
 void Con_DrawNotify (void);
 void Con_ClearNotify (void);
 void Con_ToggleConsole_f (void);
-void Con_LogCenterPrint (char *str);
 
 void Con_NotifyBox (char *text);	// during startup for sound / cd warnings
 

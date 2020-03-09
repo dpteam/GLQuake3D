@@ -30,11 +30,10 @@ typedef struct
 	qboolean	allsolid;	// if true, plane is not valid
 	qboolean	startsolid;	// if true, the initial point was in a solid area
 	qboolean	inopen, inwater;
-	float		fraction;	// time completed, 1.0 = didn't hit anything
-	vec3_t		endpos;		// final position
-	plane_t		plane;		// surface normal at impact
-	edict_t		*ent;		// entity the surface is on
-	int		recurslevel;	// hull depth protection
+	float	fraction;		// time completed, 1.0 = didn't hit anything
+	vec3_t	endpos;			// final position
+	plane_t	plane;			// surface normal at impact
+	edict_t	*ent;			// entity the surface is on
 } trace_t;
 
 
@@ -64,7 +63,6 @@ int SV_TruePointContents (vec3_t p);
 // the non-true version remaps the water current contents to content_water
 
 edict_t	*SV_TestEntityPosition (edict_t *ent);
-qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, trace_t *trace);
 
 trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, edict_t *passedict);
 // mins and maxs are reletive

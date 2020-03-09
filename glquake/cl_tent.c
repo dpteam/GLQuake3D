@@ -21,20 +21,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
-int		num_temp_entities;
+int			num_temp_entities;
 entity_t	cl_temp_entities[MAX_TEMP_ENTITIES];
 beam_t		cl_beams[MAX_BEAMS];
 
-sfx_t		*cl_sfx_wizhit;
-sfx_t		*cl_sfx_knighthit;
-sfx_t		*cl_sfx_tink1;
-sfx_t		*cl_sfx_ric1;
-sfx_t		*cl_sfx_ric2;
-sfx_t		*cl_sfx_ric3;
-sfx_t		*cl_sfx_r_exp3;
+sfx_t			*cl_sfx_wizhit;
+sfx_t			*cl_sfx_knighthit;
+sfx_t			*cl_sfx_tink1;
+sfx_t			*cl_sfx_ric1;
+sfx_t			*cl_sfx_ric2;
+sfx_t			*cl_sfx_ric3;
+sfx_t			*cl_sfx_r_exp3;
 #ifdef QUAKE2
-sfx_t		*cl_sfx_imp;
-sfx_t		*cl_sfx_rail;
+sfx_t			*cl_sfx_imp;
+sfx_t			*cl_sfx_rail;
 #endif
 
 /*
@@ -104,7 +104,7 @@ void CL_ParseBeam (model_t *m)
 			return;
 		}
 	}
-	Con_Printf ("beam list overflow (max = %d)\n", MAX_BEAMS);	
+	Con_Printf ("beam list overflow!\n");	
 }
 
 /*
@@ -115,14 +115,13 @@ CL_ParseTEnt
 void CL_ParseTEnt (void)
 {
 	int		type;
-	vec3_t		pos;
+	vec3_t	pos;
 #ifdef QUAKE2
-	vec3_t		endpos;
+	vec3_t	endpos;
 #endif
 	dlight_t	*dl;
 	int		rnd;
 	int		colorStart, colorLength;
-	static float	lastmsg = 0;
 
 	type = MSG_ReadByte ();
 	switch (type)
@@ -225,12 +224,7 @@ void CL_ParseTEnt (void)
 	case TE_LIGHTNING3:				// lightning bolts
 		CL_ParseBeam (Mod_ForName("progs/bolt3.mdl", true));
 		break;
-
-// Nehahra		
-        case TE_LIGHTNING4:                             // lightning bolts
-                CL_ParseBeam (Mod_ForName(MSG_ReadString(), true));
-		break;
-
+	
 // PGM 01/21/97 
 	case TE_BEAM:				// grappling hook beam
 		CL_ParseBeam (Mod_ForName("progs/beam.mdl", true));
@@ -265,23 +259,7 @@ void CL_ParseTEnt (void)
 		dl->decay = 300;
 		S_StartSound (-1, 0, cl_sfx_r_exp3, pos, 1, 1);
 		break;
-
-// Nehahra		
-        case TE_EXPLOSION3:                      // rocket explosion
-		pos[0] = MSG_ReadCoord ();
-		pos[1] = MSG_ReadCoord ();
-		pos[2] = MSG_ReadCoord ();
-		dl = CL_AllocDlight (0);
-		VectorCopy (pos, dl->origin);
-		dl->radius = 350;
-		dl->die = cl.time + 0.5;
-		dl->decay = 300;
-                MSG_ReadCoord();
-                MSG_ReadCoord();
-                MSG_ReadCoord();
-		S_StartSound (-1, 0, cl_sfx_r_exp3, pos, 1, 1);
-		break;
-
+		
 #ifdef QUAKE2
 	case TE_IMPLOSION:
 		pos[0] = MSG_ReadCoord ();
@@ -310,18 +288,7 @@ void CL_ParseTEnt (void)
 #endif
 
 	default:
-//		Sys_Error ("CL_ParseTEnt: bad type %d", type);
-		if (IsTimeout(&lastmsg, 2))
-		{
-			Con_SafePrintf ("\002CL_ParseTEnt: ");
-			Con_SafePrintf ("bad type %d\n", type);
-		}
-
-		// Blind parsing ...
-		pos[0] = MSG_ReadCoord ();
-		pos[1] = MSG_ReadCoord ();
-		pos[2] = MSG_ReadCoord ();
-		break;
+		Sys_Error ("CL_ParseTEnt: bad type");
 	}
 }
 
@@ -334,22 +301,11 @@ CL_NewTempEntity
 entity_t *CL_NewTempEntity (void)
 {
 	entity_t	*ent;
-	static float	lastmsg1 = 0, lastmsg2 = 0;
 
 	if (cl_numvisedicts == MAX_VISEDICTS)
-	{
-		if (IsTimeout (&lastmsg1, 2))
-			Con_DPrintf ("CL_NewTempEntity: too many visedicts (max = %d)\n", MAX_VISEDICTS);
-
 		return NULL;
-	}
 	if (num_temp_entities == MAX_TEMP_ENTITIES)
-	{
-		if (IsTimeout (&lastmsg2, 2))
-			Con_DPrintf ("CL_NewTempEntity: too many temp_entities (max = %d)\n", MAX_TEMP_ENTITIES);
-
 		return NULL;
-	}
 	ent = &cl_temp_entities[num_temp_entities];
 	memset (ent, 0, sizeof(*ent));
 	num_temp_entities++;
@@ -368,17 +324,14 @@ CL_UpdateTEnts
 */
 void CL_UpdateTEnts (void)
 {
-	int	    i, j;
-	beam_t	    *b;
-	vec3_t	    dist, org;
-	float	    d;
-	entity_t    *ent;
-	float	    yaw, pitch;
-	float	    forward;
+	int			i;
+	beam_t		*b;
+	vec3_t		dist, org;
+	float		d;
+	entity_t	*ent;
+	float		yaw, pitch;
+	float		forward;
 
-	if (SV_IsPaused ())
-		return; // No beams when game paused
-	
 	num_temp_entities = 0;
 
 // update lightning
@@ -430,8 +383,8 @@ void CL_UpdateTEnts (void)
 			ent->angles[1] = yaw;
 			ent->angles[2] = rand()%360;
 
-			for (j=0 ; j<3 ; j++)
-				org[j] += dist[j]*30;
+			for (i=0 ; i<3 ; i++)
+				org[i] += dist[i]*30;
 			d -= 30;
 		}
 	}

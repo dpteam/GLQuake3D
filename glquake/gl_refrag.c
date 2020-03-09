@@ -92,8 +92,7 @@ void R_SplitEntityOnNode (mnode_t *node)
 	efrag_t		*ef;
 	mplane_t	*splitplane;
 	mleaf_t		*leaf;
-	int		sides;
-	static float	lastmsg = 0;
+	int			sides;
 	
 	if (node->contents == CONTENTS_SOLID)
 	{
@@ -113,9 +112,7 @@ void R_SplitEntityOnNode (mnode_t *node)
 		ef = cl.free_efrags;
 		if (!ef)
 		{
-			if (IsTimeout (&lastmsg, 2))
-				Con_Printf ("Too many efrags! (max = %d)\n", MAX_EFRAGS);
-
+			Con_Printf ("Too many efrags!\n");
 			return;		// no free fragments...
 		}
 		cl.free_efrags = cl.free_efrags->entnext;
@@ -203,13 +200,10 @@ void R_StoreEfrags (efrag_t **ppefrag)
 	model_t		*clmodel;
 	efrag_t		*pefrag;
 
+
 	while ((pefrag = *ppefrag) != NULL)
 	{
 		pent = pefrag->entity;
-
-		if (!pent)
-			Sys_Error ("R_StoreEfrags: pent is NULL");
-
 		clmodel = pent->model;
 
 		switch (clmodel->type)
@@ -220,7 +214,7 @@ void R_StoreEfrags (efrag_t **ppefrag)
 			pent = pefrag->entity;
 
 			if ((pent->visframe != r_framecount) &&
-			    (cl_numvisedicts < (r_timerefresh_active ? 256 : MAX_VISEDICTS))) // For compatibility
+				(cl_numvisedicts < MAX_VISEDICTS))
 			{
 				cl_visedicts[cl_numvisedicts++] = pent;
 
@@ -232,7 +226,7 @@ void R_StoreEfrags (efrag_t **ppefrag)
 			break;
 
 		default:	
-			Sys_Error ("R_StoreEfrags: Bad entity type %d", clmodel->type);
+			Sys_Error ("R_StoreEfrags: Bad entity type %d\n", clmodel->type);
 		}
 	}
 }

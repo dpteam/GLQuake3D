@@ -34,8 +34,7 @@ typedef struct
 
 typedef struct sfx_s
 {
-	char 		name[MAX_QPATH];
-	int		loadtimes;		// count # load times
+	char 	name[MAX_QPATH];
 	cache_user_t	cache;
 } sfx_t;
 
@@ -97,10 +96,8 @@ void S_StartSound (int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float 
 void S_StaticSound (sfx_t *sfx, vec3_t origin, float vol, float attenuation);
 void S_StopSound (int entnum, int entchannel);
 void S_StopAllSounds(qboolean clear);
-void S_ClearAll (void);
 void S_ClearBuffer (void);
 void S_Update (vec3_t origin, vec3_t v_forward, vec3_t v_right, vec3_t v_up);
-void S_ExtraUpdateTime (void);
 void S_ExtraUpdate (void);
 
 sfx_t *S_PrecacheSound (char *sample);
@@ -130,8 +127,8 @@ void SNDDMA_Shutdown(void);
 // User-setable variables
 // ====================================================================
 
-#define	MAX_CHANNELS		512 //516 //128
-#define	MAX_DYNAMIC_CHANNELS	128 //8
+#define	MAX_CHANNELS			128
+#define	MAX_DYNAMIC_CHANNELS	8
 
 
 extern	channel_t   channels[MAX_CHANNELS];

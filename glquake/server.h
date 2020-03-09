@@ -21,10 +21,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 typedef struct
 {
-	int		maxclients;
-	int		maxclientslimit;
+	int			maxclients;
+	int			maxclientslimit;
 	struct client_s	*clients;		// [maxclients]
-	int		serverflags;		// episode completion information
+	int			serverflags;		// episode completion information
 	qboolean	changelevel_issued;	// cleared when at SV_SpawnServer
 } server_static_t;
 
@@ -41,7 +41,7 @@ typedef struct
 
 	double		time;
 	
-	int		lastcheck;			// used by PF_checkclient
+	int			lastcheck;			// used by PF_checkclient
 	double		lastchecktime;
 	
 	char		name[64];			// map name
@@ -54,9 +54,8 @@ typedef struct
 	struct model_s	*models[MAX_MODELS];
 	char		*sound_precache[MAX_SOUNDS];	// NULL terminated
 	char		*lightstyles[MAX_LIGHTSTYLES];
-	int		num_edicts;
-	int		active_edicts;
-	int		max_edicts;
+	int			num_edicts;
+	int			max_edicts;
 	edict_t		*edicts;			// can NOT be array indexed, because
 									// edict_t is variable sized, but can
 									// be used to reference the world ent
@@ -69,9 +68,7 @@ typedef struct
 	byte		reliable_datagram_buf[MAX_DATAGRAM];
 
 	sizebuf_t	signon;
-	byte		signon_buf[MAX_MSGLEN-2]; //8192
-	int		signondiff;		// Track extra bytes due to >256 model support, kludge
-	int		Protocol;
+	byte		signon_buf[8192];
 } server_t;
 
 
@@ -128,8 +125,8 @@ typedef struct client_s
 #define	MOVETYPE_BOUNCE			10
 #ifdef QUAKE2
 #define MOVETYPE_BOUNCEMISSILE	11		// bounce w/o gravity
+#define MOVETYPE_FOLLOW			12		// track movement of aiment
 #endif
-#define MOVETYPE_FOLLOW			12		// track movement of aiment // Nehahra
 
 // edict->solid values
 #define	SOLID_NOT				0		// no interaction with other objects
@@ -219,19 +216,15 @@ extern	edict_t		*sv_player;
 //===========================================================
 
 void SV_Init (void);
-qboolean SV_IsPaused (void);
 
 void SV_StartParticle (vec3_t org, vec3_t dir, int color, int count);
-void SV_WriteByteShort2 (sizebuf_t *sb, int c, qboolean Compatibility);
 void SV_StartSound (edict_t *entity, int channel, char *sample, int volume,
     float attenuation);
 
-void SV_WriteByteShort (sizebuf_t *sb, int c);
 void SV_DropClient (qboolean crash);
 
 void SV_SendClientMessages (void);
 void SV_ClearDatagram (void);
-byte *SV_FatPVS (vec3_t org, struct model_s *worldmodel);
 
 int SV_ModelIndex (char *name);
 

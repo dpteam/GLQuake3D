@@ -96,13 +96,13 @@ S_LoadSound
 */
 sfxcache_t *S_LoadSound (sfx_t *s)
 {
-	char	    namebuffer[256];
-	byte	    *data;
-	wavinfo_t   info;
-	int	    len;
-	float	    stepscale;
-	sfxcache_t  *sc;
-	byte	    stackbuf[1*1024];		// avoid dirtying the cache heap
+    char	namebuffer[256];
+	byte	*data;
+	wavinfo_t	info;
+	int		len;
+	float	stepscale;
+	sfxcache_t	*sc;
+	byte	stackbuf[1*1024];		// avoid dirtying the cache heap
 
 // see if still in memory
 	sc = Cache_Check (&s->cache);
@@ -120,27 +120,15 @@ sfxcache_t *S_LoadSound (sfx_t *s)
 
 	if (!data)
 	{
-		Con_SafePrintf ("Couldn't load %s\n", namebuffer);
+		Con_Printf ("Couldn't load %s\n", namebuffer);
 		return NULL;
 	}
 
 	info = GetWavinfo (s->name, data, com_filesize);
-
-	if (!info.dataofs)
-		return NULL;
-	
 	if (info.channels != 1)
 	{
-		if (info.channels != 2)
-		{
-			Con_SafePrintf("%s has an unsupported number of channels (%d)\n", s->name, info.channels);
-			return NULL;
-		}
-
-		Con_SafePrintf ("%s is a stereo sample\n", s->name);
-//		return NULL;
-//		info.channels = 1;
-		info.rate *= 2; // Kludge, but seems to work
+		Con_Printf ("%s is a stereo sample\n",s->name);
+		return NULL;
 	}
 
 	stepscale = (float)info.rate / shm->speed;	
@@ -159,8 +147,6 @@ sfxcache_t *S_LoadSound (sfx_t *s)
 	sc->stereo = info.channels;
 
 	ResampleSfx (s, sc->speed, sc->width, data + info.dataofs);
-
-	Cache_Excess ("S_LoadSound", "snd", &s->loadtimes, namebuffer);
 
 	return sc;
 }
@@ -261,10 +247,10 @@ GetWavinfo
 */
 wavinfo_t GetWavinfo (char *name, byte *wav, int wavlength)
 {
-	wavinfo_t   info;
-	int	    i;
-	int	    format;
-	int	    samples;
+	wavinfo_t	info;
+	int     i;
+	int     format;
+	int		samples;
 
 	memset (&info, 0, sizeof(info));
 
@@ -278,7 +264,7 @@ wavinfo_t GetWavinfo (char *name, byte *wav, int wavlength)
 	FindChunk("RIFF");
 	if (!(data_p && !Q_strncmp(data_p+8, "WAVE", 4)))
 	{
-		Con_SafePrintf("GetWavinfo: Missing RIFF/WAVE chunks in %s\n", name);
+		Con_Printf("Missing RIFF/WAVE chunks\n");
 		return info;
 	}
 
@@ -289,14 +275,14 @@ wavinfo_t GetWavinfo (char *name, byte *wav, int wavlength)
 	FindChunk("fmt ");
 	if (!data_p)
 	{
-		Con_Printf("GetWavinfo: Missing fmt chunk in %s\n", name);
+		Con_Printf("Missing fmt chunk\n");
 		return info;
 	}
 	data_p += 8;
 	format = GetLittleShort();
 	if (format != 1)
 	{
-		Con_Printf("GetWavinfo: Sound %s isn't in Microsoft PCM format (%d, should be 1)\n", name, format);
+		Con_Printf("Microsoft PCM format only\n");
 		return info;
 	}
 
@@ -333,7 +319,7 @@ wavinfo_t GetWavinfo (char *name, byte *wav, int wavlength)
 	FindChunk("data");
 	if (!data_p)
 	{
-		Con_Printf("GetWavinfo: Missing data chunk in %s\n", name);
+		Con_Printf("Missing data chunk\n");
 		return info;
 	}
 
@@ -343,19 +329,10 @@ wavinfo_t GetWavinfo (char *name, byte *wav, int wavlength)
 	if (info.samples)
 	{
 		if (samples < info.samples)
-			Sys_Error ("GetWavinfo: Sound %s has a bad loop length (%d < %d)", name, samples, info.samples);
+			Sys_Error ("Sound %s has a bad loop length", name);
 	}
 	else
 		info.samples = samples;
-
-	if (info.samples > wavlength)
-		Sys_Error ("GetWavinfo: Sound %s has samples outside file (%d, max = %d)", name, info.samples, wavlength);
-
-	if (info.loopstart > info.samples)
-	{
-		Con_SafePrintf ("GetWavinfo: Sound %s has loopstart %d > samples %d\n", name, info.loopstart, info.samples);
-		info.loopstart = 0; // OK?
-	}
 
 	info.dataofs = data_p - wav;
 	

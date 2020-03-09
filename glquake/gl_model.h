@@ -314,9 +314,9 @@ typedef struct {
 	maliasframedesc_t	frames[1];	// variable sized
 } aliashdr_t;
 
-#define	MAXALIASVERTS	65536 // 4096	//1024
+#define	MAXALIASVERTS	1024
 #define	MAXALIASFRAMES	256
-#define	MAXALIASTRIS	65536 //4096	//2048
+#define	MAXALIASTRIS	2048
 extern	aliashdr_t	*pheader;
 extern	stvert_t	stverts[MAXALIASVERTS];
 extern	mtriangle_t	triangles[MAXALIASTRIS];
@@ -339,26 +339,16 @@ typedef enum {mod_brush, mod_sprite, mod_alias} modtype_t;
 #define	EF_TRACER2	64			// orange split trail + rotate
 #define	EF_TRACER3	128			// purple trail
 
-#define	AUTOBRIGHTS	2
-
 typedef struct model_s
 {
 	char		name[MAX_QPATH];
 	qboolean	needload;		// bmodels and sprites don't cache normally
-	int		loadtimes;		// count # load times
-	int		size;			// size of model
-	qboolean	fullbright;		// for special models
-	int		autobright[AUTOBRIGHTS];
-	qboolean	eyes;
-	qboolean	noshadow;
-	qboolean	nolerp;			// similar to U_NOLERP, kludge
 
 	modtype_t	type;
-	int		numframes;
-	int		maxframe;		// For warnings
+	int			numframes;
 	synctype_t	synctype;
 	
-	int		flags;
+	int			flags;
 
 //
 // volume occupied by the model graphics
@@ -375,44 +365,44 @@ typedef struct model_s
 //
 // brush model
 //
-	int		firstmodelsurface, nummodelsurfaces;
+	int			firstmodelsurface, nummodelsurfaces;
 
-	int		numsubmodels;
+	int			numsubmodels;
 	dmodel_t	*submodels;
 
-	int		numplanes;
+	int			numplanes;
 	mplane_t	*planes;
 
-	int		numleafs;		// number of visible leafs, not counting 0
+	int			numleafs;		// number of visible leafs, not counting 0
 	mleaf_t		*leafs;
 
-	int		numvertexes;
+	int			numvertexes;
 	mvertex_t	*vertexes;
 
-	int		numedges;
+	int			numedges;
 	medge_t		*edges;
 
-	int		numnodes;
+	int			numnodes;
 	mnode_t		*nodes;
 
-	int		numtexinfo;
+	int			numtexinfo;
 	mtexinfo_t	*texinfo;
 
-	int		numsurfaces;
+	int			numsurfaces;
 	msurface_t	*surfaces;
 
-	int		numsurfedges;
-	int		*surfedges;
+	int			numsurfedges;
+	int			*surfedges;
 
-	int		numclipnodes;
+	int			numclipnodes;
 	dclipnode_t	*clipnodes;
 
-	int		nummarksurfaces;
+	int			nummarksurfaces;
 	msurface_t	**marksurfaces;
 
 	hull_t		hulls[MAX_MAP_HULLS];
 
-	int		numtextures;
+	int			numtextures;
 	texture_t	**textures;
 
 	byte		*visdata;
@@ -427,8 +417,6 @@ typedef struct model_s
 } model_t;
 
 //============================================================================
-
-extern qboolean Mod_IsWorldModel;
 
 void	Mod_Init (void);
 void	Mod_ClearAll (void);
