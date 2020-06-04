@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: configure
-      run: mkdir build && cd build && cmake .. -G"Visual Studio 16 2019"
+      run: mkdir build && cd build && cmake .. -G"Visual Studio 15 2017"
     - name: build
       run: cmake --build build --config Debug
     - name: Download a Build Artifact
