@@ -20,4 +20,4 @@ jobs:
     - name: Download a Build Artifact
       uses: actions/upload-artifact@v2
       with:
-        path: build/glquake/*/*.exe && build/glquake/*/*.dll && game_root/
+        path: ${{ github.workspace }}/build/glquake/**/*.exe && ${{ github.workspace }}/build/glquake/**/*.dll && ${{ github.workspace }}/game_root/
