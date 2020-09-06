@@ -581,11 +581,11 @@ The typing input line at the bottom should only be drawn if typing is allowed
 */
 void Con_DrawConsole (int lines, qboolean drawinput)
 {
-	int				i, x, y;
-	int				rows;
-	char			*text;
-	int				j;
-	
+	int  i, x, y;
+	int  rows, sb;
+	char *text, ver[256];
+	int  j, len;
+
 	if (lines <= 0)
 		return;
 
@@ -593,12 +593,14 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 	Draw_ConsoleBackground (lines);
 
 // draw the text
-	con_vislines = lines;
+	con_vislines = lines * vid.conheight / vid.height;
 
-	rows = (lines-16)>>3;		// rows of text to draw
-	y = lines - 16 - (rows<<3);	// may start slightly negative
+	rows = (con_vislines + 7) / 8;	// rows of text to draw
+	y = con_vislines - rows * 8;	// may start slightly negative
+	rows -= 2;			// for input and version lines
+	sb = con_backscroll ? 1 : 0;	// > 1 generates blank lines in arrow printout below
 
-	for (i= con_current - rows + 1 ; i<=con_current ; i++, y+=8 )
+	for (i= con_current - rows + 1 ; i<=con_current - sb ; i++, y+=8 )
 	{
 		j = i - con_backscroll;
 		if (j<0)
@@ -607,6 +609,15 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 
 		for (x=0 ; x<con_linewidth ; x++)
 			Draw_Character ( (x+1)<<3, y, text[x]);
+	}
+
+// draw scrollback arrows
+	if (con_backscroll)
+	{
+		y += (sb - 1) * 8; // 0 or more blank lines
+		for (x=0 ; x<con_linewidth ; x+=4)
+			Draw_Character ((x+1)<<3, y, '^');
+		y+=8;
 	}
 
 // draw the input prompt, user text, and cursor if desired
