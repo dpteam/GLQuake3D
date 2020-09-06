@@ -9,12 +9,12 @@ on:
 jobs:
   build:
 
-    runs-on: windows-2016
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v2
     - name: configure
-      run: mkdir build && cd build && cmake .. -G"Visual Studio 15 2017"
+      run: mkdir build && cd build && cmake .. -G"Visual Studio 16 2019"
     - name: build
       run: cmake --build build --config Debug
     - name: Download a Build Artifact
