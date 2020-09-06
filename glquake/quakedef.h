@@ -23,20 +23,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define	QUAKE_GAME			// as opposed to utilities
 
-#define	VERSION			1.10
-#define	GLQUAKE_VERSION		1.34
-#define	D3DQUAKE_VERSION	0.02
-#define	WINQUAKE_VERSION	1.34
-#define	LINUX_VERSION		1.31
-#define	X11_VERSION		1.11
-
-#pragma warning(disable : 4018)
-#pragma warning(disable : 4101)
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4305)
+#define	VERSION				1.09
+#define	GLQUAKE_VERSION		1.00
+#define	D3DQUAKE_VERSION	0.01
+#define	WINQUAKE_VERSION	0.996
+#define	LINUX_VERSION		1.30
+#define	X11_VERSION			1.10
 
 //define	PARANOID			// speed sapping error checking
-//#define NOISE
 
 #ifdef QUAKE2
 #define	GAMENAME	"id1"		// directory to look in by default
@@ -84,7 +78,7 @@ void	VID_UnlockBuffer (void);
 
 #define UNUSED(x)	(x = x)	// for pesky compiler / lint warnings
 
-#define	MINIMUM_MEMORY		0x550000
+#define	MINIMUM_MEMORY			0x550000
 #define	MINIMUM_MEMORY_LEVELPAK	(MINIMUM_MEMORY + 0x100000)
 
 #define MAX_NUM_ARGVS	50
@@ -93,31 +87,27 @@ void	VID_UnlockBuffer (void);
 #define	PITCH	0
 
 // left / right
-#define	YAW	1
+#define	YAW		1
 
 // fall over
 #define	ROLL	2
 
 
-#define	MAX_QPATH	64			// max length of a quake game pathname
-#define	MAX_OSPATH	128			// max length of a filesystem pathname
+#define	MAX_QPATH		64			// max length of a quake game pathname
+#define	MAX_OSPATH		128			// max length of a filesystem pathname
 
-#define	ON_EPSILON	0.1			// point on plane side epsilon
+#define	ON_EPSILON		0.1			// point on plane side epsilon
 
-#define	MAX_MSGLEN	65536 //MAX_DATAGRAM //8000	// max length of a reliable message
-#define	MAX_DATAGRAM	1400 //(NETFLAG_DATA - 1 - NET_HEADERSIZE) //1024	// max length of unreliable message
-#define	MAX_DATAGRAM2	sv_max_datagram
-extern int		sv_max_datagram;	// is default MAX_DATAGRAM
-
-#define	MAX_PRINTMSG	4096
+#define	MAX_MSGLEN		8000		// max length of a reliable message
+#define	MAX_DATAGRAM	1024		// max length of unreliable message
 
 //
 // per-level limits
 //
-#define MAX_EDICTS      8192 //4096 //600              // More than 8192 requires protocol change
+#define	MAX_EDICTS		600			// FIXME: ouch! ouch! ouch!
 #define	MAX_LIGHTSTYLES	64
-#define	MAX_MODELS	4096 //1024 //256		// these are sent over the net as bytes
-#define	MAX_SOUNDS	4096 //1024 //256		// so they cannot be blindly increased
+#define	MAX_MODELS		256			// these are sent over the net as bytes
+#define	MAX_SOUNDS		256			// so they cannot be blindly increased
 
 #define	SAVEGAME_COMMENT_LENGTH	39
 
@@ -210,7 +200,7 @@ extern int		sv_max_datagram;	// is default MAX_DATAGRAM
 
 //===========================================
 
-#define	MAX_SCOREBOARD		64 //16
+#define	MAX_SCOREBOARD		16
 #define	MAX_SCOREBOARDNAME	32
 
 #define	SOUND_CHANNELS		8

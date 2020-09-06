@@ -29,6 +29,8 @@ int nanmask = 255<<23;
 
 /*-----------------------------------------------------------------*/
 
+#define DEG2RAD( a ) ( a * M_PI ) / 180.0F
+
 void ProjectPointOnPlane( vec3_t dst, const vec3_t p, const vec3_t normal )
 {
 	float d;
@@ -173,6 +175,7 @@ void BOPS_Error (void)
 {
 	Sys_Error ("BoxOnPlaneSide:  Bad signbits");
 }
+
 
 /*
 ==================

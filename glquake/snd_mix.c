@@ -256,11 +256,11 @@ void SND_PaintChannelFrom16 (channel_t *ch, sfxcache_t *sc, int endtime);
 
 void S_PaintChannels(int endtime)
 {
-	int 		i;
-	int 		end;
-	channel_t	*ch;
+	int 	i;
+	int 	end;
+	channel_t *ch;
 	sfxcache_t	*sc;
-	int		ltime, count, wdog;
+	int		ltime, count;
 
 	while (paintedtime < endtime)
 	{
@@ -284,7 +284,6 @@ void S_PaintChannels(int endtime)
 			if (!sc)
 				continue;
 
-			wdog = 0;
 			ltime = paintedtime;
 
 			while (ltime < end)
@@ -303,20 +302,12 @@ void S_PaintChannels(int endtime)
 	
 					ltime += count;
 				}
-				else if (++wdog > 1024)
-				{
-					Con_SafePrintf ("\002S_PaintChannels: ");
-					Con_SafePrintf ("runaway loop for '%s'\n", ch->sfx->name);
-					ch->sfx = NULL;
-					break;
-				}
 
 			// if at end of loop, restart
 				if (ltime >= ch->end)
 				{
 					if (sc->loopstart >= 0)
 					{
-//						ch->pos = CLAMP(0, sc->loopstart, sc->length - 1);
 						ch->pos = sc->loopstart;
 						ch->end = ltime + sc->length - ch->pos;
 					}
@@ -345,6 +336,7 @@ void SND_InitScaletable (void)
 			snd_scaletable[i][j] = ((signed char)j) * i * 8;
 }
 
+
 void SND_PaintChannelFrom8 (channel_t *ch, sfxcache_t *sc, int count)
 {
 	int 	data;
@@ -370,6 +362,7 @@ void SND_PaintChannelFrom8 (channel_t *ch, sfxcache_t *sc, int count)
 	
 	ch->pos += count;
 }
+
 
 void SND_PaintChannelFrom16 (channel_t *ch, sfxcache_t *sc, int count)
 {
