@@ -63,6 +63,7 @@ typedef struct
 	char	identifier[64];
 	int		width, height;
 	qboolean	mipmap;
+	int             lhcsum;
 } gltexture_t;
 
 #define	MAX_GLTEXTURES	1024
@@ -1231,43 +1232,52 @@ static	unsigned	trans[640*480];		// FIXME, temporary
 GL_LoadTexture
 ================
 */
+int lhcsumtable[256];
 int GL_LoadTexture (char *identifier, int width, int height, byte *data, qboolean mipmap, qboolean alpha)
 {
-	qboolean	noalpha;
-	int			i, p, s;
-	gltexture_t	*glt;
-
+	qboolean noalpha;
+	int   i, p, s, lhcsum;
+	gltexture_t *glt;
+	// LordHavoc: do a checksum to confirm the data really is the same as previous
+	// occurances. well this isn't exactly a checksum, it's better than that but
+	// not following any standards.
+	lhcsum = 0;
+	s = width*height;
+	for (i = 0;i < 256;i++) lhcsumtable[i] = i + 1;
+	for (i = 0;i < s;i++) lhcsum += (lhcsumtable[data[i] & 255]++);
 	// see if the texture is allready present
 	if (identifier[0])
 	{
-		for (i=0, glt=gltextures ; i<numgltextures ; i++, glt++)
+		for (i=0, glt=gltextures ; iidentifier))
 		{
-			if (!strcmp (identifier, glt->identifier))
+			// LordHavoc: everyone hates cache mismatchs, so I fixed it
+			if (lhcsum != glt->lhcsum || width != glt->width || height != glt->height)
 			{
-				if (width != glt->width || height != glt->height)
-					Sys_Error ("GL_LoadTexture: cache mismatch");
-				return gltextures[i].texnum;
+				Con_DPrintf("GL_LoadTexture: cache mismatch, replacing old texture\n");
+				goto GL_LoadTexture_setup; // drop out with glt pointing to the texture to replace
 			}
+			return glt->texnum;
 		}
 	}
-	else {
-		glt = &gltextures[numgltextures];
-		numgltextures++;
-	}
-
+	// LordHavoc: this was an else condition, causing disasterous results,
+	// whoever at id or threewave must've been half asleep...
+	glt = &gltextures[numgltextures];
+	numgltextures++;
 	strcpy (glt->identifier, identifier);
 	glt->texnum = texture_extension_number;
+	texture_extension_number++;
+	// LordHavoc: label to drop out of the loop into the setup code
+	GL_LoadTexture_setup:
+	glt->lhcsum = lhcsum; // LordHavoc: used to verify textures are identical
 	glt->width = width;
 	glt->height = height;
 	glt->mipmap = mipmap;
-
-	GL_Bind(texture_extension_number );
-
-	GL_Upload8 (data, width, height, mipmap, alpha);
-
-	texture_extension_number++;
-
-	return texture_extension_number-1;
+	if (!isDedicated)
+	{
+		GL_Bind(glt->texnum);
+		GL_Upload8 (data, width, height, mipmap, alpha);
+	}
+	return glt->texnum;
 }
 
 /*
