@@ -798,8 +798,8 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	parms.membase = malloc (parms.memsize);
 
-	if (!parms.membase)
-		Sys_Error ("Not enough memory free; check disk space\n");
+	/*if (!parms.membase)
+		Sys_Error ("Not enough memory free; check disk space\n");*/
 
 	Sys_PageIn (parms.membase, parms.memsize);
 
