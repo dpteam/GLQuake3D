@@ -1,7 +1,5 @@
 # GLQuake3D
 
-[![DepShield Badge](https://depshield.sonatype.org/badges/dpteam/GLQuake3D/depshield.svg)](https://depshield.github.io)
-
 This source-port is based on WinQuake/GLQuake and has such changes:
 1. Increased the engine limits
 2. Improved glowing on entities
@@ -32,3 +30,13 @@ ID Software: Quake, WinQuake, GLQuake
 DartPower: Code rewrite 
 
 D'Sparil: Common engine improvements ideas and game icon, also for testing 
+
+## Resources, used for developing: 
+
+https://www.quakewiki.net/quakesrc/index.html
+
+https://quakewiki.org/wiki/Engine_Limits
+
+http://bjp.fov120.com/
+
+Also thanks a lot for adding to port listing: https://quakeengines.github.io/
