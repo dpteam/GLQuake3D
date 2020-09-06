@@ -1248,7 +1248,7 @@ int GL_LoadTexture (char *identifier, int width, int height, byte *data, qboolea
 	// see if the texture is allready present
 	if (identifier[0])
 	{
-		for (i=0, glt=gltextures ; identifier)
+		for (i=0, glt=gltextures ; i<numgltextures ; i++, glt++)
 		{
 			// LordHavoc: everyone hates cache mismatchs, so I fixed it
 			if (lhcsum != glt->lhcsum || width != glt->width || height != glt->height)
