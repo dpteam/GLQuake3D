@@ -22,5 +22,5 @@ jobs:
       with:
         name: GLQuake3D-DebugBuild
         path: |
-          build/glquake/Debug/GLQuake3D.exe
-          game_root/**/*
+          build/glquake/*/GLQuake3D.exe
+          game_root/*
