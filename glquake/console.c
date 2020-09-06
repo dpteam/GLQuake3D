@@ -612,6 +612,29 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 // draw the input prompt, user text, and cursor if desired
 	if (drawinput)
 		Con_DrawInput ();
+
+//draw version number in bottom right
+	y += 8;
+
+// Additional info of version, code by Bengt Jardrup.
+#ifdef GLQUAKE
+	sprintf (ver, "(GL %4.2f) %4.2f --", (float)GLQUAKE_VERSION, (float)VERSION);
+#else
+	sprintf (ver, "(Win %4.2f) %4.2f --", (float)WINQUAKE_VERSION, (float)VERSION);
+#endif
+
+	len = strlen (ver);
+
+	// Hack for low resolutions, 17 = name below
+	if (con_linewidth >= len + 9 + 17 + 2)
+		strcat (ver, " Modified");
+	else if (con_linewidth >= len + 4 + 17 + 2)
+		strcat (ver, " Mod");
+
+	strcat (ver, " by DartPower & D'Sparil");
+
+	for (x = 0; x < strlen(ver); x++)
+		Draw_Character ((con_linewidth - strlen(ver) + x + 2) << 3, y, ver[x] /*+ 128*/);
 }
 
 
